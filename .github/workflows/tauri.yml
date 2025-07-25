@@ -16,6 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Node.js のセットアップ（npm コマンドに必要）
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # Rust のセットアップ（tauri-cli に必要）
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      # Tauri CLI をグローバルにインストール
+      - run: cargo install tauri-cli
+
+      # 依存インストール
+      - run: npm install
+
+      # Tauri ビルド（自動でバイナリとリリース作成）
       - uses: tauri-apps/tauri-action@v0
         with:
           args: build
