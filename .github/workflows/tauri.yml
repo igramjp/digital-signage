@@ -1,44 +1,43 @@
-name: Tauri Release Build
+name: Release Tauri App
 
 on:
   push:
     tags:
-      - "v*"
-  workflow_dispatch:
+      - 'v*' # Triggers on pushes to tags starting with 'v'
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  build-and-release:
     runs-on: ${{ matrix.os }}
 
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # Node.js のセットアップ（npm コマンドに必要）
-      - uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20' # Or your desired Node.js version
 
-      # Rust のセットアップ（tauri-cli に必要）
-      - uses: actions-rs/toolchain@v1
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          override: true
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin' || '' }} # Example for macOS M1 builds
 
-      # Tauri CLI をグローバルにインストール
-      - run: cargo install tauri-cli
+      - name: Install dependencies (Rust & Node.js)
+        run: |
+          npm install # Or yarn install, pnpm install
 
-      # 依存インストール
-      - run: npm install
-
-      # Tauri ビルド（自動でバイナリとリリース作成）
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build and Release Tauri App
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Required for creating/uploading to releases
         with:
-          args: build
-          projectPath: "."
-          tagName: ${{ github.ref_name }}
-          releaseName: "App ${{ github.ref_name }}"
-          releaseDraft: true
-          prerelease: false
+          tagName: v__TAG__ # Will be replaced with the actual tag name by the action
+          releaseName: 'Tauri App v__TAG__'
+          releaseBody: 'See the changelog for details.'
+          releaseDraft: true # Set to false to publish immediately
+          prerelease: false # Set to true for pre-releases
