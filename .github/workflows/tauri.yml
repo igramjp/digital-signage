@@ -26,9 +26,9 @@ jobs:
           cache: npm
 
       - name: Install Node.js dependencies
-        run: npm install
+        run: npm ci
 
-      - name: Install Rust
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust dependencies
@@ -40,15 +40,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev
 
-      - name: Build and Release Tauri App
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Tauri App
+        run: npm run tauri:build
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          projectPath: .
-          releaseDraft: true
-          includeDebug: true
-          includeRelease: true
-          tagName: ${{ github.ref_name }}
-          releaseName: "Release ${{ github.ref_name }}"
-          releaseBody: "See the changelog for details."
+          name: tauri-${{ matrix.platform }}
+          path: src-tauri/target/release/bundle
