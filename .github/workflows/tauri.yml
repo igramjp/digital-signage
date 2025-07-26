@@ -58,3 +58,33 @@ jobs:
           name: tauri-${{ matrix.platform }}
           path: src-tauri/target/release/bundle
 
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload assets to Release
+        run: |
+          for platform in macos-latest ubuntu-22.04 windows-latest; do
+            files=$(find ./artifacts/tauri-$platform -type f)
+            for file in $files; do
+              gh release upload "${{ github.ref }}" "$file" --clobber
+            done
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
