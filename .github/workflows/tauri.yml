@@ -57,3 +57,4 @@ jobs:
         with:
           name: tauri-${{ matrix.platform }}
           path: src-tauri/target/release/bundle
+
