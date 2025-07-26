@@ -78,6 +78,11 @@ jobs:
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-          files: ./artifacts/**/*
+          files: |
+            ./artifacts/**/dmg/*.dmg
+            ./artifacts/**/appimage/*.AppImage
+            ./artifacts/**/msi/*.msi
+            ./artifacts/**/deb/*.deb
+            ./artifacts/**/nsis/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
