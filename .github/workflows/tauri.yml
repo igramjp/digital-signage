@@ -27,24 +27,21 @@ jobs:
       - uses: actions/checkout@v4
 
       # node
-      - name: install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.x.x
-
       - name: setup node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: pnpm
+          cache: npm
 
-      - name: install example dependencies
+      - name: Install Node.js dependencies (example-v1)
         run: |
           cd ./.github/fixtures/example-v1
-          pnpm install
-      # Testing cli fallback install
-      #          cd ../example-with-tauri-v1
-      #          pnpm install
+          npm install
+
+      - name: Install Node.js dependencies (example-with-tauri-v1)
+        run: |
+          cd ./.github/fixtures/example-with-tauri-v1
+          npm install
 
       # rust
       - name: install Rust stable
@@ -120,24 +117,21 @@ jobs:
       - uses: actions/checkout@v4
 
       # node
-      - name: install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.x.x
-
       - name: setup node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: pnpm
+          cache: npm
 
-      - name: install example dependencies
+      - name: Install Node.js dependencies (example-v2)
         run: |
           cd ./.github/fixtures/example-v2
-          pnpm install
-      # Testing cli fallback install
-      #          cd ../example-with-tauri-v2
-      #          pnpm install
+          npm install
+
+      - name: Install Node.js dependencies (example-with-tauri-v2)
+        run: |
+          cd ./.github/fixtures/example-with-tauri-v2
+          npm install
 
       # rust
       - name: install Rust stable
