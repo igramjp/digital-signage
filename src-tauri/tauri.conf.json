@@ -13,10 +13,14 @@
     "windows": [
       {
         "title": "Digital Signage",
-        "width": 800,
-        "height": 600,
+        "width": 3840,
+        "height": 2160,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": true,
+        "center": true,
+        "decorations": false,
+        "minWidth": 1920,
+        "minHeight": 1080
       }
     ],
     "security": {
