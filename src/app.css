@@ -1,4 +1,410 @@
+/* Noto Sans JP Variable Font の読み込み */
+@font-face {
+  font-family: 'Noto Sans JP';
+  font-style: normal;
+  font-weight: 100 900;
+  src: url('/fonts/NotoSansJP-VariableFont_wght.woff2') format('woff2'),
+    url('/fonts/NotoSansJP-VariableFont_wght.ttf') format('truetype');
+}
+
+:root {
+  --color-primary: #005bac;
+  --color-secondary: #eb5c02;
+  --color-font: black;
+  --color-gray: #8c8c8c;
+  --jp-sans: 'Noto Sans JP', sans-serif;
+}
+
+::selection {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section {
+  display: block;
+}
+
 body {
-  background-color: #000;
-  color: #fff;
+  line-height: 1;
+  font-family: var(--jp-sans);
+  font-weight: 400;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+blockquote,
+q {
+  quotes: none;
+}
+
+blockquote:before,
+blockquote:after,
+q:before,
+q:after {
+  content: '';
+  content: none;
+}
+
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+body {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: auto;
+  background-color: black;
+  color: white;
+  font-family: var(--jp-sans);
+  font-weight: 500;
+  font-size: 20px;
+}
+
+video.main-movie {
+  width: 1680px;
+  height: 945px;
+}
+
+.stage {
+  overflow: hidden;
+  position: relative;
+  width: 100vw;
+  max-width: 1920px;
+  height: 100vh;
+  max-height: 1080px;
+  aspect-ratio: 16/9;
+  background-color: white;
+  margin: 0 auto;
+}
+
+button {
+  border: 1px solid var(--color-gray);
+  background: var(--color-gray);
+  color: white;
+  cursor: pointer;
+  width: 110px;
+  height: 55px;
+  text-align: center;
+  font-size: 20px;
+  font-family: var(--jp-sans);
+  font-weight: 500;
+  line-height: 1;
+  padding-bottom: 4px;
+  letter-spacing: 0.01em;
+  font-feature-settings: 'palt';
+}
+
+button:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+button.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+#pause-btn.active,
+#stop-btn.active {
+  background: var(--color-secondary);
+  border-color: var(--color-secondary);
+}
+
+.control-panel {
+  overflow: hidden;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+  width: 1854px;
+  height: 132px;
+  background-color: rgba(0, 0, 0, 0.82);
+  padding: 0 33px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  backdrop-filter: blur(11px);
+  -webkit-backdrop-filter: blur(11px);
+  z-index: 11;
+}
+
+.movie-control {
+  overflow: hidden;
+  position: relative;
+  width: max-content;
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 11px;
+}
+
+.step-control {
+  overflow: hidden;
+  position: relative;
+  width: max-content;
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 11px;
+}
+
+.step-control button {
+  font-size: 21px;
+}
+
+.logo {
+  overflow: hidden;
+  position: relative;
+  width: auto;
+  height: auto;
+}
+
+.logo img {
+  width: auto;
+  height: 55px;
+}
+
+.data-panel {
+  overflow: hidden;
+  position: absolute;
+  bottom: 154px;
+  right: 33px;
+  width: 220px;
+  height: auto;
+  background-color: rgba(0, 0, 0, 0.82);
+  color: white;
+  font-size: 18px;
+  font-family: var(--jp-sans);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-feature-settings: 'palt';
+  display: flex;
+  flex-direction: column;
+  gap: 5.5px;
+  padding: 11px;
+  z-index: 11;
+}
+
+.data-panel-item {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 33px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#content-info {
+  position: relative;
+}
+
+#content-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.5);
+  transition: width 0.5s ease;
+  z-index: 0;
+}
+
+#content-info p {
+  position: relative;
+  z-index: 1;
+}
+
+#playback-status {
+  position: relative;
+}
+
+#playback-status::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.5);
+  transition: width 0.5s ease;
+  z-index: 0;
+}
+
+#playback-status p {
+  position: relative;
+  z-index: 1;
+}
+
+#elapsed-time {
+  position: relative;
+}
+
+#elapsed-time::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: var(--progress, 0%);
+  background: rgba(255, 255, 255, 0.5);
+  transition: width 0.5s ease;
+  z-index: 0;
+}
+
+#elapsed-time p {
+  position: relative;
+  z-index: 1;
+}
+
+/* STEP進行度に応じた背景幅 */
+#content-info.step-1::before {
+  width: 0%;
+}
+
+#content-info.step-2::before {
+  width: 25%;
+}
+
+#content-info.step-3::before {
+  width: 50%;
+}
+
+#content-info.step-4::before {
+  width: 75%;
+}
+
+#content-info.step-5::before {
+  width: 100%;
+}
+
+/* 再生状態に応じた背景幅 */
+#playback-status.playing::before {
+  width: 100%;
+}
+
+#playback-status.paused::before {
+  width: 0%;
+}
+
+#playback-status.stopped::before {
+  width: 0%;
+}
+
+/* ロゴをクリック可能に */
+.logo {
+  cursor: pointer;
+}
+
+.logo:hover {
+  opacity: 0.82;
 }
