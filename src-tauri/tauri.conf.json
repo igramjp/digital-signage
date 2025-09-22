@@ -43,8 +43,7 @@
       "exceptionDomain": null,
       "frameworks": [],
       "providerShortName": null,
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false
+      "hardenedRuntime": false
     }
   }
 }
