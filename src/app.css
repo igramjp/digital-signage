@@ -167,22 +167,94 @@ body {
 video.main-movie {
   width: 1680px;
   height: 945px;
+  opacity: 0;
+  display: none;
 }
 
-.stage {
+video.main-movie.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.init {
   overflow: hidden;
   position: relative;
-  width: 100vw;
-  max-width: 1920px;
-  height: 100vh;
-  max-height: 1080px;
+  width: 1920px;
+  height: 1080px;
   aspect-ratio: 16/9;
   background-color: white;
   margin: 0 auto;
 }
 
+.init video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.init-bg {
+  overflow: hidden;
+  position: absolute;
+  top: 55px;
+  left: 0;
+  right: 0;
+  margin: auto;
+  width: 1226px;
+  height: auto;
+}
+
+.init-ttl {
+  overflow: hidden;
+  position: absolute;
+  top: 264px;
+  left: 0;
+  right: 0;
+  margin: auto;
+  width: 870px;
+  height: auto;
+}
+
+.init-btn {
+  overflow: hidden;
+  position: absolute;
+  top: 594px;
+  left: 0;
+  right: 0;
+  margin: auto;
+  width: 410px;
+  height: auto;
+}
+
+.stage {
+  overflow: hidden;
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  aspect-ratio: 16/9;
+  background-color: white;
+  margin: 0 auto;
+  display: none;
+}
+
+.stage.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
 button {
-  border: 1px solid var(--color-gray);
+  overflow: hidden;
+  position: relative;
+  border-radius: 5.5px;
   background: var(--color-gray);
   color: white;
   cursor: pointer;
@@ -216,6 +288,11 @@ button.active {
   border-color: var(--color-secondary);
 }
 
+.init button {
+  border: none !important;
+  background: transparent !important;
+}
+
 .control-panel {
   overflow: hidden;
   position: absolute;
@@ -244,6 +321,35 @@ button.active {
   justify-content: space-between;
   align-items: center;
   gap: 11px;
+}
+
+.movie-control button {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.movie-control button#play-btn img {
+  width: auto;
+  height: 27.5px;
+  margin-top: 3px;
+  margin-left: 6px;
+}
+
+.movie-control button#pause-btn img {
+  width: auto;
+  height: 24.75px;
+  margin-top: 3px;
+}
+
+.movie-control button#stop-btn img {
+  width: auto;
+  height: 22px;
+  margin-top: 3px;
+  margin-right: 1px;
 }
 
 .step-control {
@@ -407,4 +513,148 @@ button.active {
 
 .logo:hover {
   opacity: 0.82;
+}
+
+.material-area {
+  overflow: hidden;
+  position: absolute;
+  top: 33px;
+  right: 66px;
+  width: 770px;
+  height: 880px;
+  display: none;
+  justify-content: flex-start;
+  align-items: flex-start;
+  z-index: 1;
+  opacity: 0;
+}
+
+.material-area.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.material-area img {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+}
+
+.material-image {
+  overflow: hidden;
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+}
+
+.material-area video {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  display: none;
+}
+
+.material-area video.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.material-video-controls {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5.5px;
+  padding: 16.5px 0;
+  margin: 0 auto;
+  z-index: 10;
+}
+
+.material-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.36);
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.material-btn img {
+  width: 16.5px;
+  height: 16.5px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.material-btn.prev {
+  padding-right: 3px;
+}
+
+.material-btn.next {
+  padding-left: 3px;
+}
+
+.material-btn:hover {
+  background: var(--color-primary);
+}
+
+.material-video-counter {
+  color: #888;
+  font-size: 16px;
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
+}
+
+.graph-area {
+  overflow: hidden;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 770px;
+  height: auto;
+  display: none;
+}
+
+.material-area.is-active .graph-area {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.exit-btn {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 5.5px;
+}
+
+.exit-btn:hover {
+  background: var(--color-secondary);
 }
