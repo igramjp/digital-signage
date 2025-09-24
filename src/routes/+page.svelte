@@ -3,6 +3,7 @@
   import { SIGNAGE_VERSION } from "$lib";
   import D3ChartStep2 from "$lib/D3ChartStep2.svelte";
   import D3ChartStep3 from "$lib/D3ChartStep3.svelte";
+  import { onMount } from "svelte";
 
   let videoElements: HTMLVideoElement[] = [];
   let isPlaying = false;
@@ -14,6 +15,11 @@
   let d3ChartStep2Component: D3ChartStep2; // D3ChartStep2コンポーネントの参照
   let d3ChartStep3Component: D3ChartStep3; // D3ChartStep3コンポーネントの参照
   let isInitialized = false; // 初期化完了フラグ
+  let showPdf = false; // PDF表示フラグ
+  let currentPdf = ""; // 現在表示中のPDFファイル名
+  let showVideo = false; // 動画表示フラグ
+  let currentVideo = ""; // 現在表示中の動画ファイル名
+  let preloadComplete = false; // プリロード完了フラグ
 
   // 各material-areaの動画インデックス管理
   let materialVideoIndex: { [key: number]: number } = {
@@ -101,6 +107,78 @@
     showDataPanel = !showDataPanel;
   }
 
+  // プリロード関数
+  async function preloadAllMedia(): Promise<void> {
+    const mediaFiles = [
+      // 画像ファイル
+      "/images/init-msg.png",
+      "/images/init-char2.png",
+      "/images/logo.svg",
+      "/images/logo.webp",
+      "/images/material1.svg",
+      "/images/material4.png",
+      "/images/icon-play.svg",
+      "/images/icon-pause.svg",
+      "/images/icon-stop.svg",
+      "/images/icon-prev.svg",
+      "/images/icon-next.svg",
+      // 動画ファイル
+      "/videos/step1.mp4",
+      "/videos/step2.mp4",
+      "/videos/step3.mp4",
+      "/videos/step4.mp4",
+      "/videos/step5.mp4",
+      "/videos/material2-1.mp4",
+      "/videos/material2-2.mp4",
+      "/videos/material3-1.mp4",
+      "/videos/material3-2.mp4",
+      "/videos/material4-1.mp4",
+      "/videos/material5-1.mp4",
+      "/videos/material5-2.mp4",
+      "/videos/material5-3.mp4",
+      "/videos/init-menu2.mp4",
+      "/videos/init-menu3.mp4",
+      // PDFファイル
+      "/pdfs/init-menu1.pdf",
+    ];
+
+    const preloadPromises = mediaFiles.map((file) => {
+      return new Promise<void>((resolve) => {
+        if (file.endsWith(".mp4")) {
+          // 動画ファイル
+          const video = document.createElement("video");
+          video.preload = "metadata";
+          video.onloadedmetadata = () => resolve();
+          video.onerror = () => resolve(); // エラーでも続行
+          video.src = file;
+        } else if (file.endsWith(".pdf")) {
+          // PDFファイル
+          const link = document.createElement("link");
+          link.rel = "prefetch";
+          link.href = file;
+          link.onload = () => resolve();
+          link.onerror = () => resolve(); // エラーでも続行
+          document.head.appendChild(link);
+        } else {
+          // 画像ファイル
+          const img = new Image();
+          img.onload = () => resolve();
+          img.onerror = () => resolve(); // エラーでも続行
+          img.src = file;
+        }
+      });
+    });
+
+    try {
+      await Promise.all(preloadPromises);
+      preloadComplete = true;
+      console.log("すべてのメディアファイルのプリロードが完了しました");
+    } catch (error) {
+      console.warn("プリロード中にエラーが発生しました:", error);
+      preloadComplete = true; // エラーでも続行
+    }
+  }
+
   // 初期化ボタンクリック時の処理
   function handleInitButtonClick(): void {
     isInitialized = true;
@@ -119,6 +197,42 @@
     currentStep = 1;
     // データパネルを非表示に
     showDataPanel = false;
+  }
+
+  // PDF表示関数
+  function showPdfViewer(pdfFile: string): void {
+    currentPdf = pdfFile;
+    showPdf = true;
+  }
+
+  // PDF表示を閉じる関数
+  function closePdfViewer(): void {
+    showPdf = false;
+    currentPdf = "";
+  }
+
+  // 動画表示関数
+  function showVideoViewer(videoFile: string): void {
+    currentVideo = videoFile;
+    showVideo = true;
+
+    // 動画が読み込まれた後にコントローラーを強制表示
+    setTimeout(() => {
+      const videoElement = document.querySelector(
+        ".video-viewer",
+      ) as HTMLVideoElement;
+      if (videoElement) {
+        videoElement.controls = true;
+        // コントローラーを強制的に表示
+        videoElement.style.setProperty("--webkit-media-controls", "block");
+      }
+    }, 100);
+  }
+
+  // 動画表示を閉じる関数
+  function closeVideoViewer(): void {
+    showVideo = false;
+    currentVideo = "";
   }
 
   // 動画を手動で再生
@@ -145,6 +259,12 @@
       currentVideo.currentTime = 0;
     }
   }
+
+  // コンポーネントマウント時の処理
+  onMount(() => {
+    // プリロードを開始
+    preloadAllMedia();
+  });
 
   // 動画を切り替える
   function switchVideo(step: number): void {
@@ -210,6 +330,73 @@
     <button class="init-btn" on:click={handleInitButtonClick}>
       <img src="/images/init-btn.svg" alt="ENTER" />
     </button>
+    <img class="init-char1" src="/images/init-char1.png" alt="" />
+    <img class="init-char2" src="/images/init-char2.png" alt="" />
+    <img class="init-msg" src="/images/init-msg.png" alt="" />
+    <div class="init-menu">
+      <button
+        class="init-menu1"
+        on:click={() => showPdfViewer("init-menu1.pdf")}>カタログ</button
+      >
+      <button
+        class="init-menu2"
+        on:click={() => showVideoViewer("init-menu2.mp4")}
+        >土丸橋ビデオ（3分版）</button
+      >
+      <button
+        class="init-menu3"
+        on:click={() => showVideoViewer("init-menu3.mp4")}
+        >土丸橋ビデオ（7分版）</button
+      >
+    </div>
+  </div>
+{/if}
+
+{#if showPdf}
+  <div
+    class="pdf-overlay"
+    on:click={closePdfViewer}
+    on:keydown={(e) => e.key === "Escape" && closePdfViewer()}
+    role="button"
+    tabindex="0"
+  >
+    <div
+      class="pdf-container"
+      on:click|stopPropagation
+      on:keydown|stopPropagation
+      role="button"
+      tabindex="0"
+    >
+      <iframe src="/pdfs/{currentPdf}" class="pdf-viewer" title="PDF表示"
+      ></iframe>
+    </div>
+  </div>
+{/if}
+
+{#if showVideo}
+  <div
+    class="video-overlay"
+    on:click={closeVideoViewer}
+    on:keydown={(e) => e.key === "Escape" && closeVideoViewer()}
+    role="button"
+    tabindex="0"
+  >
+    <div
+      class="video-container"
+      on:click|stopPropagation
+      on:keydown|stopPropagation
+      role="button"
+      tabindex="0"
+    >
+      <!-- svelte-ignore a11y-media-has-caption -->
+      <video
+        src="/videos/{currentVideo}"
+        class="video-viewer"
+        controls
+        controlsList="nodownload"
+        title="動画表示"
+      ></video>
+    </div>
   </div>
 {/if}
 
