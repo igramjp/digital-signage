@@ -720,6 +720,34 @@ button.active {
   font-size: 16px;
   font-weight: bold;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+  text-align: center;
+}
+
+.preload-text {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.preload-progress {
+  width: 100%;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.preload-percentage {
+  font-size: 12px;
+  opacity: 0.8;
 }
 
 .init-menu {
