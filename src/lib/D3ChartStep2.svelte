@@ -1,13 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import * as d3 from "d3";
 
   let chartContainer: HTMLDivElement;
   let chartCreated = false;
 
   onMount(() => {
-    if (typeof window !== "undefined" && (window as any).d3) {
-      createChart();
-    }
+    createChart();
   });
 
   // コンポーネントが破棄される時にチャートをクリア
@@ -24,15 +23,11 @@
       chartContainer.innerHTML = "";
       chartCreated = false;
     }
-    if (typeof window !== "undefined" && (window as any).d3) {
-      createChart();
-    }
+    createChart();
   }
 
   function createChart() {
     if (chartCreated) return; // 既に作成済みの場合はスキップ
-
-    const d3 = (window as any).d3;
 
     // データ型定義
     interface DataPoint {
@@ -95,27 +90,27 @@
       .tickValues(d3.range(0, maxX + 1, 3))
       .tickSize(-innerHeight)
       .tickSizeOuter(0)
-      .tickFormat("");
+      .tickFormat(null);
     const yGrid = d3
       .axisLeft(y)
       .tickValues([-200, -160, -120, -80, -40, 0])
       .tickSize(-innerWidth)
       .tickSizeOuter(0)
-      .tickFormat("");
+      .tickFormat(null);
 
     // グリッド
     g.append("g")
       .attr("class", "grid")
       // 0.5px オフセットでピクセル境界に揃えて薄消えを防止
       .attr("transform", `translate(0.5,${innerHeight + 0.5})`)
-      .call(xGrid)
+      .call(xGrid as any)
       .selectAll("line")
       .attr("stroke-width", 1);
     g.append("g")
       .attr("class", "grid")
       // 0.5px オフセットでピクセル境界に揃えて薄消えを防止
       .attr("transform", `translate(0.5,0.5)`)
-      .call(yGrid)
+      .call(yGrid as any)
       .selectAll("line")
       .attr("stroke-width", 1);
 
@@ -143,7 +138,7 @@
 
     // 折れ線
     const line = d3
-      .line()
+      .line<DataPoint>()
       .x((d: DataPoint) => x(d.t))
       .y((d: DataPoint) => y(d.v))
       .curve(d3.curveMonotoneX);
@@ -179,7 +174,7 @@
       .attr("opacity", 0)
       .transition()
       // データの範囲(0→lastX)に合わせてタイミングを調整
-      .delay((d: DataPoint) => startDelay + (d.t / lastX) * totalDuration)
+      .delay((d: DataPoint) => startDelay + (d.t / (lastX || 1)) * totalDuration)
       .duration(250)
       .attr("opacity", 1);
 
