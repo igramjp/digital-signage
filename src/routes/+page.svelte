@@ -1,9 +1,21 @@
 <script lang="ts">
   import "../app.css";
   import { SIGNAGE_VERSION } from "$lib";
+  import {
+    imageFiles as manifestImages,
+    videoFiles as manifestVideos,
+  } from "$lib/preload-manifest";
   import D3ChartStep2 from "$lib/D3ChartStep2.svelte";
   import D3ChartStep3 from "$lib/D3ChartStep3.svelte";
   import { onMount } from "svelte";
+  import { base } from "$app/paths";
+
+  // ベースパス付きアセット解決ヘルパー
+  const asset = (p: string) => `${base}${p}`;
+  // Tauri実行判定（WebView内は __TAURI__ が存在）
+  const isTauri =
+    typeof window !== "undefined" &&
+    typeof (window as any).__TAURI__ !== "undefined";
 
   let videoElements: HTMLVideoElement[] = [];
   let isPlaying = false;
@@ -20,6 +32,8 @@
   let showVideo = false; // 動画表示フラグ
   let currentVideo = ""; // 現在表示中の動画ファイル名
   let preloadComplete = false; // プリロード完了フラグ
+  let preloadProgress = 0; // プリロード進捗（0-100）
+  let preloadStatus = "準備中..."; // プリロードステータス
 
   // 各material-areaの動画インデックス管理
   let materialVideoIndex: { [key: number]: number } = {
@@ -107,81 +121,197 @@
     showDataPanel = !showDataPanel;
   }
 
-  // プリロード関数
-  async function preloadAllMedia(): Promise<void> {
-    const mediaFiles = [
-      // 画像ファイル
+  // 最適化されたプリロード関数（static/images と static/videos を全て対象）
+  async function preloadAllMedia(
+    options: { includeVideos?: boolean } = {},
+  ): Promise<void> {
+    const { includeVideos = true } = options;
+    // 優先度別にファイルを分類（画像は優先度を付け、残りは自動）
+    const criticalFiles = [
+      // 最重要：init画面で即座に必要な画像
       "/images/init-msg.png",
       "/images/init-char2.png",
       "/images/logo.svg",
       "/images/logo.webp",
-      "/images/material1.svg",
-      "/images/material4.png",
+    ];
+
+    const importantFiles = [
+      // 重要：操作アイコンや最初に見える画像
       "/images/icon-play.svg",
       "/images/icon-pause.svg",
       "/images/icon-stop.svg",
       "/images/icon-prev.svg",
       "/images/icon-next.svg",
-      // 動画ファイル
-      "/videos/step1.mp4",
-      "/videos/step2.mp4",
-      "/videos/step3.mp4",
-      "/videos/step4.mp4",
-      "/videos/step5.mp4",
-      "/videos/material2-1.mp4",
-      "/videos/material2-2.mp4",
-      "/videos/material3-1.mp4",
-      "/videos/material3-2.mp4",
-      "/videos/material4-1.mp4",
-      "/videos/material5-1.mp4",
-      "/videos/material5-2.mp4",
-      "/videos/material5-3.mp4",
-      "/videos/init-menu2.mp4",
-      "/videos/init-menu3.mp4",
-      // PDFファイル
-      "/pdfs/init-menu1.pdf",
+      "/images/material1.svg",
+      "/images/material4.png",
+      "/images/init-bg.svg",
+      "/images/init-btn.svg",
+      "/images/init-ttl.svg",
+      "/images/init-char1.png",
     ];
 
-    const preloadPromises = mediaFiles.map((file) => {
+    // マニフェスト由来の全画像・全動画
+    const highPrioritySet = new Set([...criticalFiles, ...importantFiles]);
+    const otherImages = manifestImages.filter((p) => !highPrioritySet.has(p));
+    const allVideos = [...manifestVideos];
+
+    const allFiles = [
+      ...criticalFiles,
+      ...importantFiles,
+      ...otherImages,
+      ...allVideos,
+    ];
+    let loadedCount = 0;
+
+    // 進捗更新関数
+    const updateProgress = (count: number) => {
+      loadedCount = count;
+      preloadProgress = Math.round((loadedCount / allFiles.length) * 100);
+
+      if (loadedCount <= criticalFiles.length) {
+        preloadStatus = "基本ファイル読み込み中...";
+      } else if (loadedCount <= criticalFiles.length + importantFiles.length) {
+        preloadStatus = "アイコンファイル読み込み中...";
+      } else if (
+        loadedCount <=
+        criticalFiles.length + importantFiles.length + otherImages.length
+      ) {
+        preloadStatus = "画像読み込み中...";
+      } else {
+        preloadStatus = "動画読み込み中...";
+      }
+    };
+
+    // ファイル読み込み関数
+    const loadFile = (
+      file: string,
+      priority: "high" | "low" = "low",
+    ): Promise<void> => {
       return new Promise<void>((resolve) => {
+        // ファイル名にパスが含まれていない場合のみ追加
+        const filePath = file.startsWith("/")
+          ? `${base}${file}`
+          : file.endsWith(".mp4")
+            ? `${base}/videos/${file}`
+            : file.endsWith(".pdf")
+              ? `${base}/pdfs/${file}`
+              : `${base}/images/${file}`;
+
         if (file.endsWith(".mp4")) {
-          // 動画ファイル
+          // 動画ファイル（低優先度ではmetadataのみ）
           const video = document.createElement("video");
-          video.preload = "metadata";
-          video.onloadedmetadata = () => resolve();
-          video.onerror = () => resolve(); // エラーでも続行
-          video.src = file;
+          video.preload = priority === "high" ? "auto" : "metadata";
+          video.onloadedmetadata = () => {
+            updateProgress(loadedCount + 1);
+            resolve();
+          };
+          video.onerror = () => {
+            updateProgress(loadedCount + 1);
+            resolve();
+          };
+          video.src = filePath;
         } else if (file.endsWith(".pdf")) {
           // PDFファイル
           const link = document.createElement("link");
           link.rel = "prefetch";
-          link.href = file;
-          link.onload = () => resolve();
-          link.onerror = () => resolve(); // エラーでも続行
+          link.href = filePath;
+          link.onload = () => {
+            updateProgress(loadedCount + 1);
+            resolve();
+          };
+          link.onerror = () => {
+            updateProgress(loadedCount + 1);
+            resolve();
+          };
           document.head.appendChild(link);
         } else {
           // 画像ファイル
           const img = new Image();
-          img.onload = () => resolve();
-          img.onerror = () => resolve(); // エラーでも続行
-          img.src = file;
+          img.onload = () => {
+            updateProgress(loadedCount + 1);
+            resolve();
+          };
+          img.onerror = () => {
+            updateProgress(loadedCount + 1);
+            resolve();
+          };
+          img.src = filePath;
         }
       });
-    });
+    };
 
     try {
-      await Promise.all(preloadPromises);
+      // 段階1: 最重要ファイル（並列読み込み）
+      preloadStatus = "基本ファイル読み込み中...";
+      await Promise.all(criticalFiles.map((file) => loadFile(file, "high")));
+
+      // 段階2: 重要ファイル（並列読み込み）
+      preloadStatus = "アイコンファイル読み込み中...";
+      await Promise.all(importantFiles.map((file) => loadFile(file, "high")));
+
+      // 段階3: 残り画像（並列、最大6並行）
+      preloadStatus = "画像読み込み中...";
+      for (let i = 0; i < otherImages.length; i += 6) {
+        const batch = otherImages
+          .slice(i, i + 6)
+          .map((file) => loadFile(file, "high"));
+        await Promise.all(batch);
+      }
+
+      if (includeVideos) {
+        // 段階4: 全動画（並列読み込み、同時2本まで）
+        preloadStatus = "動画読み込み中...";
+        for (let i = 0; i < allVideos.length; i += 2) {
+          const batch = allVideos
+            .slice(i, i + 2)
+            .map((file) => loadFile(file, "low"));
+          await Promise.all(batch);
+        }
+      }
+
       preloadComplete = true;
+      preloadStatus = "読み込み完了！";
       console.log("すべてのメディアファイルのプリロードが完了しました");
     } catch (error) {
       console.warn("プリロード中にエラーが発生しました:", error);
-      preloadComplete = true; // エラーでも続行
+      preloadComplete = true;
+      preloadStatus = "読み込み完了（一部エラーあり）";
     }
   }
 
   // 初期化ボタンクリック時の処理
-  function handleInitButtonClick(): void {
+  async function handleInitButtonClick(): Promise<void> {
     isInitialized = true;
+    // Tauriでは初期表示後にフルスクリーン化し、動画をバックグラウンドでプリロード
+    if (isTauri) {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const appWindow = getCurrentWindow();
+        await appWindow.setFullscreen(true);
+      } catch (_) {}
+      setTimeout(() => {
+        // 動画ファイルのみを小さな並列度でプリロード
+        (async () => {
+          const videos = [...manifestVideos];
+          for (let i = 0; i < videos.length; i += 2) {
+            const batch = videos.slice(i, i + 2).map(
+              (file) =>
+                new Promise<void>((resolve) => {
+                  const v = document.createElement("video");
+                  v.preload = "metadata";
+                  v.onloadedmetadata = () => resolve();
+                  v.onerror = () => resolve();
+                  const filePath = file.startsWith("/")
+                    ? `${base}${file}`
+                    : `${base}/videos/${file}`;
+                  v.src = filePath;
+                }),
+            );
+            await Promise.all(batch);
+          }
+        })();
+      }, 200);
+    }
   }
 
   // 終了ボタンクリック時の処理
@@ -201,7 +331,10 @@
 
   // PDF表示関数
   function showPdfViewer(pdfFile: string): void {
-    currentPdf = pdfFile;
+    // ファイル名にパスが含まれていない場合のみ追加（ベースパス対応）
+    currentPdf = pdfFile.startsWith("/")
+      ? `${base}${pdfFile}`
+      : `${base}/pdfs/${pdfFile}`;
     showPdf = true;
   }
 
@@ -213,7 +346,10 @@
 
   // 動画表示関数
   function showVideoViewer(videoFile: string): void {
-    currentVideo = videoFile;
+    // ファイル名にパスが含まれていない場合のみ追加（ベースパス対応）
+    currentVideo = videoFile.startsWith("/")
+      ? `${base}${videoFile}`
+      : `${base}/videos/${videoFile}`;
     showVideo = true;
 
     // 動画が読み込まれた後にコントローラーを強制表示
@@ -262,12 +398,64 @@
 
   // コンポーネントマウント時の処理
   onMount(() => {
-    // プリロードを開始
-    preloadAllMedia();
+    // 初期表示の応答性を優先。Tauriでは動画プリロードを遅延/後回し。
+    const startPreload = () => preloadAllMedia({ includeVideos: !isTauri });
+    if ("requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(startPreload, { timeout: 1500 });
+    } else {
+      setTimeout(startPreload, 300);
+    }
+
+    // 動画の最適化設定
+    videoElements.forEach((video) => {
+      if (video) {
+        // 動画の読み込み最適化
+        video.preload = "metadata";
+        video.crossOrigin = "anonymous";
+        // 動画の品質設定
+        video.setAttribute("playsinline", "true");
+        video.setAttribute("webkit-playsinline", "true");
+      }
+    });
   });
 
+  // 動画の遅延読み込み関数
+  function ensureVideoLoaded(step: number): Promise<void> {
+    return new Promise((resolve) => {
+      const video = videoElements[step - 1];
+      if (!video) {
+        resolve();
+        return;
+      }
+
+      if (video.readyState >= 3) {
+        // HAVE_FUTURE_DATA
+        resolve();
+        return;
+      }
+
+      const onCanPlay = () => {
+        video.removeEventListener("canplay", onCanPlay);
+        video.removeEventListener("error", onError);
+        resolve();
+      };
+
+      const onError = () => {
+        video.removeEventListener("canplay", onCanPlay);
+        video.removeEventListener("error", onError);
+        resolve();
+      };
+
+      video.addEventListener("canplay", onCanPlay);
+      video.addEventListener("error", onError);
+
+      // 動画の読み込みを開始
+      video.load();
+    });
+  }
+
   // 動画を切り替える
-  function switchVideo(step: number): void {
+  async function switchVideo(step: number): Promise<void> {
     if (currentStep === step) return;
 
     // 現在の動画を停止
@@ -281,8 +469,8 @@
     const newVideo = videoElements[currentStep - 1];
 
     if (newVideo) {
-      // 新しい動画を読み込んで自動再生
-      newVideo.load();
+      // 動画の読み込みを確保してから再生
+      await ensureVideoLoaded(step);
       newVideo.play();
     }
 
@@ -324,15 +512,22 @@
 
 {#if !isInitialized}
   <div class="init">
-    <video src="/videos/init.mp4" autoplay muted loop></video>
-    <img class="init-bg" src="/images/init-bg.svg" alt="" />
-    <img class="init-ttl" src="/images/init-ttl.svg" alt="" />
+    <video
+      src={asset("/videos/init.mp4")}
+      autoplay
+      muted
+      loop
+      preload="metadata"
+    ></video>
+    <img class="init-bg" src={asset("/images/init-bg.svg")} alt="" />
+    <img class="init-ttl" src={asset("/images/init-ttl.svg")} alt="" />
     <button class="init-btn" on:click={handleInitButtonClick}>
-      <img src="/images/init-btn.svg" alt="ENTER" />
+      <img src={asset("/images/init-btn.svg")} alt="ENTER" />
     </button>
-    <img class="init-char1" src="/images/init-char1.png" alt="" />
-    <img class="init-char2" src="/images/init-char2.png" alt="" />
-    <img class="init-msg" src="/images/init-msg.png" alt="" />
+    <img class="init-char1" src={asset("/images/init-char1.png")} alt="" />
+    <img class="init-char2" src={asset("/images/init-char2.png")} alt="" />
+    <img class="init-msg" src={asset("/images/init-msg.png")} alt="" />
+
     <div class="init-menu">
       <button
         class="init-menu1"
@@ -367,8 +562,7 @@
       role="button"
       tabindex="0"
     >
-      <iframe src="/pdfs/{currentPdf}" class="pdf-viewer" title="PDF表示"
-      ></iframe>
+      <iframe src={currentPdf} class="pdf-viewer" title="PDF表示"></iframe>
     </div>
   </div>
 {/if}
@@ -390,7 +584,7 @@
     >
       <!-- svelte-ignore a11y-media-has-caption -->
       <video
-        src="/videos/{currentVideo}"
+        src={currentVideo}
         class="video-viewer"
         controls
         controlsList="nodownload"
@@ -412,7 +606,7 @@
     class="main-movie"
     class:is-active={currentStep === 1}
   >
-    <source src="/videos/step1.mp4" type="video/mp4" />
+    <source src={asset("/videos/step1.mp4")} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
@@ -427,7 +621,7 @@
     class="main-movie"
     class:is-active={currentStep === 2}
   >
-    <source src="/videos/step2.mp4" type="video/mp4" />
+    <source src={asset("/videos/step2.mp4")} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
@@ -442,7 +636,7 @@
     class="main-movie"
     class:is-active={currentStep === 3}
   >
-    <source src="/videos/step3.mp4" type="video/mp4" />
+    <source src={asset("/videos/step3.mp4")} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
@@ -457,7 +651,7 @@
     class="main-movie"
     class:is-active={currentStep === 4}
   >
-    <source src="/videos/step4.mp4" type="video/mp4" />
+    <source src={asset("/videos/step4.mp4")} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
@@ -472,29 +666,29 @@
     class="main-movie"
     class:is-active={currentStep === 5}
   >
-    <source src="/videos/step5.mp4" type="video/mp4" />
+    <source src={asset("/videos/step5.mp4")} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
   <div class="material-area" class:is-active={currentStep === 1}>
-    <img src="/images/material1.svg" alt="" />
+    <img src={asset("/images/material1.svg")} alt="" />
   </div>
 
   <div class="material-area" class:is-active={currentStep === 2}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[2] === 0}>
-      <source src="/videos/material2-1.mp4" type="video/mp4" />
+      <source src={asset("/videos/material2-1.mp4")} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[2] === 1}>
-      <source src="/videos/material2-2.mp4" type="video/mp4" />
+      <source src={asset("/videos/material2-2.mp4")} type="video/mp4" />
     </video>
     <div class="material-video-controls">
       <button
         on:click={() => switchMaterialVideo(2, "prev")}
         class="material-btn prev"
       >
-        <img src="/images/icon-prev.svg" alt="prev" />
+        <img src={asset("/images/icon-prev.svg")} alt="prev" />
       </button>
       <span class="material-video-counter">{materialVideoIndex[2] + 1} / 2</span
       >
@@ -502,7 +696,7 @@
         on:click={() => switchMaterialVideo(2, "next")}
         class="material-btn next"
       >
-        <img src="/images/icon-next.svg" alt="next" />
+        <img src={asset("/images/icon-next.svg")} alt="next" />
       </button>
     </div>
     <div class="graph-area">
@@ -513,18 +707,18 @@
   <div class="material-area" class:is-active={currentStep === 3}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[3] === 0}>
-      <source src="/videos/material3-1.mp4" type="video/mp4" />
+      <source src={asset("/videos/material3-1.mp4")} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[3] === 1}>
-      <source src="/videos/material3-2.mp4" type="video/mp4" />
+      <source src={asset("/videos/material3-2.mp4")} type="video/mp4" />
     </video>
     <div class="material-video-controls">
       <button
         on:click={() => switchMaterialVideo(3, "prev")}
         class="material-btn prev"
       >
-        <img src="/images/icon-prev.svg" alt="prev" />
+        <img src={asset("/images/icon-prev.svg")} alt="prev" />
       </button>
       <span class="material-video-counter">{materialVideoIndex[3] + 1} / 2</span
       >
@@ -532,7 +726,7 @@
         on:click={() => switchMaterialVideo(3, "next")}
         class="material-btn next"
       >
-        <img src="/images/icon-next.svg" alt="next" />
+        <img src={asset("/images/icon-next.svg")} alt="next" />
       </button>
     </div>
     <div class="graph-area">
@@ -543,30 +737,30 @@
   <div class="material-area" class:is-active={currentStep === 4}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[4] === 0}>
-      <source src="/videos/material4-1.mp4" type="video/mp4" />
+      <source src={asset("/videos/material4-1.mp4")} type="video/mp4" />
     </video>
-    <img class="material-image" src="/images/material4.png" alt="" />
+    <img class="material-image" src={asset("/images/material4.png")} alt="" />
   </div>
 
   <div class="material-area" class:is-active={currentStep === 5}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[5] === 0}>
-      <source src="/videos/material5-1.mp4" type="video/mp4" />
+      <source src={asset("/videos/material5-1.mp4")} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[5] === 1}>
-      <source src="/videos/material5-2.mp4" type="video/mp4" />
+      <source src={asset("/videos/material5-2.mp4")} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video controls class:is-active={materialVideoIndex[5] === 2}>
-      <source src="/videos/material5-3.mp4" type="video/mp4" />
+      <source src={asset("/videos/material5-3.mp4")} type="video/mp4" />
     </video>
     <div class="material-video-controls">
       <button
         on:click={() => switchMaterialVideo(5, "prev")}
         class="material-btn prev"
       >
-        <img src="/images/icon-prev.svg" alt="prev" />
+        <img src={asset("/images/icon-prev.svg")} alt="prev" />
       </button>
       <span class="material-video-counter">{materialVideoIndex[5] + 1} / 3</span
       >
@@ -574,7 +768,7 @@
         on:click={() => switchMaterialVideo(5, "next")}
         class="material-btn next"
       >
-        <img src="/images/icon-next.svg" alt="next" />
+        <img src={asset("/images/icon-next.svg")} alt="next" />
       </button>
     </div>
   </div>
@@ -621,14 +815,14 @@
   <div class="control-panel">
     <div class="movie-control">
       <button id="play-btn" on:click={playVideo} class:active={isPlaying}>
-        <img src="/images/icon-play.svg" alt="play" />
+        <img src={asset("/images/icon-play.svg")} alt="play" />
       </button>
       <button
         id="pause-btn"
         on:click={pauseVideo}
         class:active={!isPlaying && currentTime > 0 && currentTime < duration}
       >
-        <img src="/images/icon-pause.svg" alt="pause" />
+        <img src={asset("/images/icon-pause.svg")} alt="pause" />
       </button>
       <button
         id="stop-btn"
@@ -636,7 +830,7 @@
         class:active={!isPlaying &&
           (currentTime === 0 || currentTime >= duration)}
       >
-        <img src="/images/icon-stop.svg" alt="stop" />
+        <img src={asset("/images/icon-stop.svg")} alt="stop" />
       </button>
     </div>
 
@@ -665,7 +859,7 @@
       role="button"
       tabindex="0"
     >
-      <img src="/images/logo.svg" alt="logo" />
+      <img src={asset("/images/logo.svg")} alt="logo" />
     </div>
   </div>
 </div>
