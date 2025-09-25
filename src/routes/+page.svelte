@@ -168,15 +168,6 @@
     preloadStatus = "準備中...";
     let loadedCount = 0;
 
-    // 進捗をスプラッシュへ配信（初期状態）
-    try {
-      const { emitTo } = await import("@tauri-apps/api/event");
-      await emitTo("splash", "preload_progress", {
-        progress: 0,
-        status: "準備中...",
-      });
-    } catch (_) {}
-
     // 優先度別にファイルを分類（画像は優先度を付け、残りは自動）
     const criticalFiles = [
       // 最重要：init画面で即座に必要な画像
@@ -232,19 +223,6 @@
       // console.log(
       //   `プリロード進捗: ${loadedCount}/${allFiles.length} (${preloadProgress}%) - ${preloadStatus}`,
       // );
-
-      // 進捗をスプラッシュへ配信（Tauriなら届く。非Tauriでも安全に無視）
-      (async () => {
-        try {
-          const { emitTo } = await import("@tauri-apps/api/event");
-          await emitTo("splash", "preload_progress", {
-            progress: preloadProgress,
-            status: preloadStatus,
-          });
-        } catch (_) {
-          // 非Tauri環境などでは import が失敗するため無視
-        }
-      })();
     };
 
     // ファイル読み込み関数
@@ -310,44 +288,14 @@
     try {
       // 段階1: 最重要ファイル（並列読み込み）
       preloadStatus = "基本ファイル読み込み中...";
-
-      // 段階開始時に進捗を送信
-      try {
-        const { emitTo } = await import("@tauri-apps/api/event");
-        await emitTo("splash", "preload_progress", {
-          progress: preloadProgress,
-          status: preloadStatus,
-        });
-      } catch (_) {}
-
       await Promise.all(criticalFiles.map((file) => loadFile(file, "high")));
 
       // 段階2: 重要ファイル（並列読み込み）
       preloadStatus = "アイコンファイル読み込み中...";
-
-      // 段階開始時に進捗を送信
-      try {
-        const { emitTo } = await import("@tauri-apps/api/event");
-        await emitTo("splash", "preload_progress", {
-          progress: preloadProgress,
-          status: preloadStatus,
-        });
-      } catch (_) {}
-
       await Promise.all(importantFiles.map((file) => loadFile(file, "high")));
 
       // 段階3: 残り画像（並列、最大6並行）
       preloadStatus = "画像読み込み中...";
-
-      // 段階開始時に進捗を送信
-      try {
-        const { emitTo } = await import("@tauri-apps/api/event");
-        await emitTo("splash", "preload_progress", {
-          progress: preloadProgress,
-          status: preloadStatus,
-        });
-      } catch (_) {}
-
       for (let i = 0; i < otherImages.length; i += 6) {
         const batch = otherImages
           .slice(i, i + 6)
@@ -358,16 +306,6 @@
       if (includeVideos) {
         // 段階4: 全動画（並列読み込み、同時2本まで）
         preloadStatus = "動画読み込み中...";
-
-        // 段階開始時に進捗を送信
-        try {
-          const { emitTo } = await import("@tauri-apps/api/event");
-          await emitTo("splash", "preload_progress", {
-            progress: preloadProgress,
-            status: preloadStatus,
-          });
-        } catch (_) {}
-
         for (let i = 0; i < allVideos.length; i += 2) {
           const batch = allVideos
             .slice(i, i + 2)
@@ -389,44 +327,14 @@
   // 初期化ボタンクリック時の処理
   async function handleInitButtonClick(): Promise<void> {
     isInitialized = true;
-    // Tauri 環境では、ENTER クリック時に常にスプラッシュへ閉じるイベントを送る
-    // （進捗表示が100%でもフラグ反映のタイムラグで閉じられないケースを防ぐ）
-    if (isTauri) {
-      try {
-        const { emitTo } = await import("@tauri-apps/api/event");
-        await emitTo("splash", "preload_done");
-      } catch (_) {}
-    }
 
-    // Tauriでは初期表示後にフルスクリーン化し、動画をバックグラウンドでプリロード
+    // Tauriではフルスクリーン化
     if (isTauri) {
       try {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
         const appWindow = getCurrentWindow();
         await appWindow.setFullscreen(true);
       } catch (_) {}
-      setTimeout(() => {
-        // 動画ファイルのみを小さな並列度でプリロード
-        (async () => {
-          const videos = [...manifestVideos];
-          for (let i = 0; i < videos.length; i += 2) {
-            const batch = videos.slice(i, i + 2).map(
-              (file) =>
-                new Promise<void>((resolve) => {
-                  const v = document.createElement("video");
-                  v.preload = "auto";
-                  v.oncanplaythrough = () => resolve();
-                  v.onerror = () => resolve();
-                  const filePath = file.startsWith("/")
-                    ? `${videoBase}${file}`
-                    : `${videoBase}/videos/${file}`;
-                  v.src = filePath;
-                }),
-            );
-            await Promise.all(batch);
-          }
-        })();
-      }, 200);
     }
   }
 
@@ -524,7 +432,7 @@
   // コンポーネントマウント時の処理
   onMount(async () => {
     if (isTauri) {
-      // Tauri: ウィンドウは非表示で開始。まずローカル動画サーバーURLを取得→全メディアをプリロード→表示。
+      // Tauri: ローカル動画サーバーURLを取得→全メディアをプリロード
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         // サーバー起動待ち（最大 ~5 秒）
@@ -542,16 +450,8 @@
         }
       } catch (_) {}
 
-      // 画像/動画すべてプリロード（完了まで待機）
-      await preloadAllMedia({ includeVideos: true });
-
-      // すべて読込後にウィンドウを表示して全画面化
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const appWindow = getCurrentWindow();
-        await appWindow.show();
-        await appWindow.setFullscreen(true);
-      } catch (_) {}
+      // 画像/動画すべてプリロード（バックグラウンドで実行）
+      preloadAllMedia({ includeVideos: true });
     } else {
       // Web: 体感速度優先（動画は後回し）
       const startPreload = () => preloadAllMedia({ includeVideos: false });
