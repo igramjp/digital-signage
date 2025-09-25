@@ -534,7 +534,7 @@ button.active {
   overflow: hidden;
   position: absolute;
   top: 33px;
-  right: 66px;
+  right: 33px;
   width: 770px;
   height: 880px;
   display: none;
@@ -808,10 +808,9 @@ button.active {
 .pdf-overlay {
   overflow: hidden;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  margin: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 1920px;
   height: 1080px;
   background: rgba(0, 0, 0, 0.82);
@@ -842,10 +841,9 @@ button.active {
 .video-overlay {
   overflow: hidden;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  margin: auto;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 1920px;
   height: 1080px;
   background: rgba(0, 0, 0, 0.82);
