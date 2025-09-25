@@ -23,6 +23,11 @@ serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.7.0", features = [] }
 tauri-plugin-log = "2"
+axum = "0.7"
+# tower-http 0.5 split compression features per algorithm.
+# Replace deprecated/nonexistent "compression" with a concrete algorithm feature.
+tower-http = { version = "0.5", features = ["fs", "cors", "set-header"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 [profile.release]
 opt-level = "s"  # サイズ最適化
