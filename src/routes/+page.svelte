@@ -16,6 +16,10 @@
   const isTauri =
     typeof window !== "undefined" &&
     typeof (window as any).__TAURI__ !== "undefined";
+  // 動画用ベース
+  // Tauri 時はローカルHTTPサーバーのデフォルトポートを先に使い、
+  // 後で invoke 取得で上書き（初期の読み込みを速くする）
+  let videoBase: string = isTauri ? "http://127.0.0.1:17820" : base;
 
   let videoElements: HTMLVideoElement[] = [];
   let isPlaying = false;
@@ -59,17 +63,30 @@
 
   // 再生開始のトリガー
   function handlePlay(event: Event): void {
-    console.log("動画再生開始:", event);
+    const video = event.target as HTMLVideoElement;
+    // console.log("動画再生開始:", event);
     isPlaying = true;
     playCount++;
+    // 動画要素から時間情報を取得
+    if (video) {
+      currentTime = video.currentTime;
+      duration = video.duration || 0;
+    }
     // ここに再生開始時の処理を書く
   }
 
   // 再生終了のトリガー
   function handleEnded(event: Event): void {
-    console.log("動画再生終了:", event);
-    console.log("終了したステップ:", currentStep);
+    const video = event.target as HTMLVideoElement;
+    // console.log("動画再生終了:", event);
+    // console.log("終了したステップ:", currentStep);
     isPlaying = false;
+
+    // 動画要素から時間情報を取得
+    if (video) {
+      currentTime = video.currentTime;
+      duration = video.duration || 0;
+    }
 
     // 現在のステップに応じた処理例
     if (currentStep < 5) {
@@ -83,24 +100,32 @@
 
   // 一時停止のトリガー
   function handlePause(event: Event): void {
-    console.log("動画一時停止:", event);
+    const video = event.target as HTMLVideoElement;
+    // console.log("動画一時停止:", event);
     isPlaying = false;
+
+    // 動画要素から時間情報を取得
+    if (video) {
+      currentTime = video.currentTime;
+      duration = video.duration || 0;
+    }
   }
 
   // 時間更新のトリガー
   function handleTimeUpdate(event: Event): void {
-    const currentVideo = videoElements[currentStep - 1];
-    if (currentVideo) {
-      currentTime = currentVideo.currentTime;
-      duration = currentVideo.duration || 0;
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      currentTime = video.currentTime;
+      duration = video.duration || 0;
     }
   }
 
   // 動画メタデータ読み込み完了
   function handleLoadedMetadata(event: Event): void {
-    const currentVideo = videoElements[currentStep - 1];
-    if (currentVideo) {
-      duration = currentVideo.duration || 0;
+    const video = event.target as HTMLVideoElement;
+    if (video) {
+      duration = video.duration || 0;
+      // console.log(`動画メタデータ読み込み完了: duration=${duration}秒`);
     }
   }
 
@@ -113,8 +138,19 @@
   }
 
   // 動画の進行度を計算（0-100%、小数点以下第四位まで）
-  $: progressPercentage =
-    duration > 0 ? parseFloat(((currentTime / duration) * 100).toFixed(4)) : 0;
+  $: progressPercentage = (() => {
+    const percentage =
+      duration > 0
+        ? parseFloat(((currentTime / duration) * 100).toFixed(4))
+        : 0;
+    // デバッグログ（最初の数回のみ表示）
+    if (currentTime > 0 || duration > 0) {
+      // console.log(
+      //   `進捗計算: currentTime=${currentTime}, duration=${duration}, percentage=${percentage}%`,
+      // );
+    }
+    return percentage;
+  })();
 
   // データパネルの表示切り替え
   function toggleDataPanel(): void {
@@ -126,6 +162,21 @@
     options: { includeVideos?: boolean } = {},
   ): Promise<void> {
     const { includeVideos = true } = options;
+
+    // 進捗を初期化
+    preloadProgress = 0;
+    preloadStatus = "準備中...";
+    let loadedCount = 0;
+
+    // 進捗をスプラッシュへ配信（初期状態）
+    try {
+      const { emitTo } = await import("@tauri-apps/api/event");
+      await emitTo("splash", "preload_progress", {
+        progress: 0,
+        status: "準備中...",
+      });
+    } catch (_) {}
+
     // 優先度別にファイルを分類（画像は優先度を付け、残りは自動）
     const criticalFiles = [
       // 最重要：init画面で即座に必要な画像
@@ -155,17 +206,14 @@
     const otherImages = manifestImages.filter((p) => !highPrioritySet.has(p));
     const allVideos = [...manifestVideos];
 
-    const allFiles = [
-      ...criticalFiles,
-      ...importantFiles,
-      ...otherImages,
-      ...allVideos,
-    ];
-    let loadedCount = 0;
+    // 進捗計算対象の総ファイル配列（動画を含めるかはオプションに従う）
+    const allFiles = includeVideos
+      ? [...criticalFiles, ...importantFiles, ...otherImages, ...allVideos]
+      : [...criticalFiles, ...importantFiles, ...otherImages];
 
     // 進捗更新関数
-    const updateProgress = (count: number) => {
-      loadedCount = count;
+    const updateProgress = () => {
+      loadedCount += 1;
       preloadProgress = Math.round((loadedCount / allFiles.length) * 100);
 
       if (loadedCount <= criticalFiles.length) {
@@ -180,6 +228,23 @@
       } else {
         preloadStatus = "動画読み込み中...";
       }
+
+      // console.log(
+      //   `プリロード進捗: ${loadedCount}/${allFiles.length} (${preloadProgress}%) - ${preloadStatus}`,
+      // );
+
+      // 進捗をスプラッシュへ配信（Tauriなら届く。非Tauriでも安全に無視）
+      (async () => {
+        try {
+          const { emitTo } = await import("@tauri-apps/api/event");
+          await emitTo("splash", "preload_progress", {
+            progress: preloadProgress,
+            status: preloadStatus,
+          });
+        } catch (_) {
+          // 非Tauri環境などでは import が失敗するため無視
+        }
+      })();
     };
 
     // ファイル読み込み関数
@@ -190,23 +255,25 @@
       return new Promise<void>((resolve) => {
         // ファイル名にパスが含まれていない場合のみ追加
         const filePath = file.startsWith("/")
-          ? `${base}${file}`
+          ? file.endsWith(".mp4")
+            ? `${videoBase}${file}`
+            : `${base}${file}`
           : file.endsWith(".mp4")
-            ? `${base}/videos/${file}`
+            ? `${videoBase}/videos/${file}`
             : file.endsWith(".pdf")
               ? `${base}/pdfs/${file}`
               : `${base}/images/${file}`;
 
         if (file.endsWith(".mp4")) {
-          // 動画ファイル（低優先度ではmetadataのみ）
+          // 動画ファイル（全てautoで完全読み込み）
           const video = document.createElement("video");
-          video.preload = priority === "high" ? "auto" : "metadata";
-          video.onloadedmetadata = () => {
-            updateProgress(loadedCount + 1);
+          video.preload = "auto";
+          video.oncanplaythrough = () => {
+            updateProgress();
             resolve();
           };
           video.onerror = () => {
-            updateProgress(loadedCount + 1);
+            updateProgress();
             resolve();
           };
           video.src = filePath;
@@ -216,11 +283,11 @@
           link.rel = "prefetch";
           link.href = filePath;
           link.onload = () => {
-            updateProgress(loadedCount + 1);
+            updateProgress();
             resolve();
           };
           link.onerror = () => {
-            updateProgress(loadedCount + 1);
+            updateProgress();
             resolve();
           };
           document.head.appendChild(link);
@@ -228,11 +295,11 @@
           // 画像ファイル
           const img = new Image();
           img.onload = () => {
-            updateProgress(loadedCount + 1);
+            updateProgress();
             resolve();
           };
           img.onerror = () => {
-            updateProgress(loadedCount + 1);
+            updateProgress();
             resolve();
           };
           img.src = filePath;
@@ -243,14 +310,44 @@
     try {
       // 段階1: 最重要ファイル（並列読み込み）
       preloadStatus = "基本ファイル読み込み中...";
+
+      // 段階開始時に進捗を送信
+      try {
+        const { emitTo } = await import("@tauri-apps/api/event");
+        await emitTo("splash", "preload_progress", {
+          progress: preloadProgress,
+          status: preloadStatus,
+        });
+      } catch (_) {}
+
       await Promise.all(criticalFiles.map((file) => loadFile(file, "high")));
 
       // 段階2: 重要ファイル（並列読み込み）
       preloadStatus = "アイコンファイル読み込み中...";
+
+      // 段階開始時に進捗を送信
+      try {
+        const { emitTo } = await import("@tauri-apps/api/event");
+        await emitTo("splash", "preload_progress", {
+          progress: preloadProgress,
+          status: preloadStatus,
+        });
+      } catch (_) {}
+
       await Promise.all(importantFiles.map((file) => loadFile(file, "high")));
 
       // 段階3: 残り画像（並列、最大6並行）
       preloadStatus = "画像読み込み中...";
+
+      // 段階開始時に進捗を送信
+      try {
+        const { emitTo } = await import("@tauri-apps/api/event");
+        await emitTo("splash", "preload_progress", {
+          progress: preloadProgress,
+          status: preloadStatus,
+        });
+      } catch (_) {}
+
       for (let i = 0; i < otherImages.length; i += 6) {
         const batch = otherImages
           .slice(i, i + 6)
@@ -261,6 +358,16 @@
       if (includeVideos) {
         // 段階4: 全動画（並列読み込み、同時2本まで）
         preloadStatus = "動画読み込み中...";
+
+        // 段階開始時に進捗を送信
+        try {
+          const { emitTo } = await import("@tauri-apps/api/event");
+          await emitTo("splash", "preload_progress", {
+            progress: preloadProgress,
+            status: preloadStatus,
+          });
+        } catch (_) {}
+
         for (let i = 0; i < allVideos.length; i += 2) {
           const batch = allVideos
             .slice(i, i + 2)
@@ -271,7 +378,7 @@
 
       preloadComplete = true;
       preloadStatus = "読み込み完了！";
-      console.log("すべてのメディアファイルのプリロードが完了しました");
+      // console.log("すべてのメディアファイルのプリロードが完了しました");
     } catch (error) {
       console.warn("プリロード中にエラーが発生しました:", error);
       preloadComplete = true;
@@ -282,6 +389,15 @@
   // 初期化ボタンクリック時の処理
   async function handleInitButtonClick(): Promise<void> {
     isInitialized = true;
+    // Tauri 環境では、ENTER クリック時に常にスプラッシュへ閉じるイベントを送る
+    // （進捗表示が100%でもフラグ反映のタイムラグで閉じられないケースを防ぐ）
+    if (isTauri) {
+      try {
+        const { emitTo } = await import("@tauri-apps/api/event");
+        await emitTo("splash", "preload_done");
+      } catch (_) {}
+    }
+
     // Tauriでは初期表示後にフルスクリーン化し、動画をバックグラウンドでプリロード
     if (isTauri) {
       try {
@@ -298,12 +414,12 @@
               (file) =>
                 new Promise<void>((resolve) => {
                   const v = document.createElement("video");
-                  v.preload = "metadata";
-                  v.onloadedmetadata = () => resolve();
+                  v.preload = "auto";
+                  v.oncanplaythrough = () => resolve();
                   v.onerror = () => resolve();
                   const filePath = file.startsWith("/")
-                    ? `${base}${file}`
-                    : `${base}/videos/${file}`;
+                    ? `${videoBase}${file}`
+                    : `${videoBase}/videos/${file}`;
                   v.src = filePath;
                 }),
             );
@@ -348,8 +464,8 @@
   function showVideoViewer(videoFile: string): void {
     // ファイル名にパスが含まれていない場合のみ追加（ベースパス対応）
     currentVideo = videoFile.startsWith("/")
-      ? `${base}${videoFile}`
-      : `${base}/videos/${videoFile}`;
+      ? `${videoBase}${videoFile}`
+      : `${videoBase}/videos/${videoFile}`;
     showVideo = true;
 
     // 動画が読み込まれた後にコントローラーを強制表示
@@ -376,6 +492,9 @@
     const currentVideo = videoElements[currentStep - 1];
     if (currentVideo) {
       currentVideo.play();
+      // 時間情報を更新
+      currentTime = currentVideo.currentTime;
+      duration = currentVideo.duration || 0;
     }
   }
 
@@ -384,6 +503,9 @@
     const currentVideo = videoElements[currentStep - 1];
     if (currentVideo) {
       currentVideo.pause();
+      // 時間情報を更新
+      currentTime = currentVideo.currentTime;
+      duration = currentVideo.duration || 0;
     }
   }
 
@@ -393,26 +515,58 @@
     if (currentVideo) {
       currentVideo.pause();
       currentVideo.currentTime = 0;
+      // 時間情報を更新
+      currentTime = 0;
+      duration = currentVideo.duration || 0;
     }
   }
 
   // コンポーネントマウント時の処理
-  onMount(() => {
-    // 初期表示の応答性を優先。Tauriでは動画プリロードを遅延/後回し。
-    const startPreload = () => preloadAllMedia({ includeVideos: !isTauri });
-    if ("requestIdleCallback" in window) {
-      (window as any).requestIdleCallback(startPreload, { timeout: 1500 });
+  onMount(async () => {
+    if (isTauri) {
+      // Tauri: ウィンドウは非表示で開始。まずローカル動画サーバーURLを取得→全メディアをプリロード→表示。
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        // サーバー起動待ち（最大 ~5 秒）
+        for (let i = 0; i < 50; i++) {
+          try {
+            const url = (await invoke<string>("server_base_url")) as string;
+            if (url) {
+              videoBase = url;
+              break;
+            }
+          } catch (_) {
+            // retry shortly
+          }
+          await new Promise((r) => setTimeout(r, 100));
+        }
+      } catch (_) {}
+
+      // 画像/動画すべてプリロード（完了まで待機）
+      await preloadAllMedia({ includeVideos: true });
+
+      // すべて読込後にウィンドウを表示して全画面化
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const appWindow = getCurrentWindow();
+        await appWindow.show();
+        await appWindow.setFullscreen(true);
+      } catch (_) {}
     } else {
-      setTimeout(startPreload, 300);
+      // Web: 体感速度優先（動画は後回し）
+      const startPreload = () => preloadAllMedia({ includeVideos: false });
+      if ("requestIdleCallback" in window) {
+        (window as any).requestIdleCallback(startPreload, { timeout: 1500 });
+      } else {
+        setTimeout(startPreload, 300);
+      }
     }
 
     // 動画の最適化設定
     videoElements.forEach((video) => {
       if (video) {
-        // 動画の読み込み最適化
-        video.preload = "metadata";
+        video.preload = "auto";
         video.crossOrigin = "anonymous";
-        // 動画の品質設定
         video.setAttribute("playsinline", "true");
         video.setAttribute("webkit-playsinline", "true");
       }
@@ -428,25 +582,25 @@
         return;
       }
 
-      if (video.readyState >= 3) {
-        // HAVE_FUTURE_DATA
+      if (video.readyState >= 4) {
+        // HAVE_ENOUGH_DATA - 動画が完全に読み込まれている
         resolve();
         return;
       }
 
-      const onCanPlay = () => {
-        video.removeEventListener("canplay", onCanPlay);
+      const onCanPlayThrough = () => {
+        video.removeEventListener("canplaythrough", onCanPlayThrough);
         video.removeEventListener("error", onError);
         resolve();
       };
 
       const onError = () => {
-        video.removeEventListener("canplay", onCanPlay);
+        video.removeEventListener("canplaythrough", onCanPlayThrough);
         video.removeEventListener("error", onError);
         resolve();
       };
 
-      video.addEventListener("canplay", onCanPlay);
+      video.addEventListener("canplaythrough", onCanPlayThrough);
       video.addEventListener("error", onError);
 
       // 動画の読み込みを開始
@@ -471,6 +625,11 @@
     if (newVideo) {
       // 動画の読み込みを確保してから再生
       await ensureVideoLoaded(step);
+
+      // 新しい動画の時間情報を更新
+      currentTime = newVideo.currentTime;
+      duration = newVideo.duration || 0;
+
       newVideo.play();
     }
 
@@ -513,11 +672,12 @@
 {#if !isInitialized}
   <div class="init">
     <video
-      src={asset("/videos/init.mp4")}
+      src={`${videoBase}/videos/init.mp4`}
       autoplay
       muted
       loop
-      preload="metadata"
+      preload="auto"
+      playsinline
     ></video>
     <img class="init-bg" src={asset("/images/init-bg.svg")} alt="" />
     <img class="init-ttl" src={asset("/images/init-ttl.svg")} alt="" />
@@ -598,6 +758,7 @@
   <!-- svelte-ignore a11y-media-has-caption -->
   <video
     bind:this={videoElements[0]}
+    preload="auto"
     on:play={handlePlay}
     on:ended={handleEnded}
     on:pause={handlePause}
@@ -606,13 +767,14 @@
     class="main-movie"
     class:is-active={currentStep === 1}
   >
-    <source src={asset("/videos/step1.mp4")} type="video/mp4" />
+    <source src={`${videoBase}/videos/step1.mp4`} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
   <!-- svelte-ignore a11y-media-has-caption -->
   <video
     bind:this={videoElements[1]}
+    preload="auto"
     on:play={handlePlay}
     on:ended={handleEnded}
     on:pause={handlePause}
@@ -621,13 +783,14 @@
     class="main-movie"
     class:is-active={currentStep === 2}
   >
-    <source src={asset("/videos/step2.mp4")} type="video/mp4" />
+    <source src={`${videoBase}/videos/step2.mp4`} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
   <!-- svelte-ignore a11y-media-has-caption -->
   <video
     bind:this={videoElements[2]}
+    preload="auto"
     on:play={handlePlay}
     on:ended={handleEnded}
     on:pause={handlePause}
@@ -636,13 +799,14 @@
     class="main-movie"
     class:is-active={currentStep === 3}
   >
-    <source src={asset("/videos/step3.mp4")} type="video/mp4" />
+    <source src={`${videoBase}/videos/step3.mp4`} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
   <!-- svelte-ignore a11y-media-has-caption -->
   <video
     bind:this={videoElements[3]}
+    preload="auto"
     on:play={handlePlay}
     on:ended={handleEnded}
     on:pause={handlePause}
@@ -651,13 +815,14 @@
     class="main-movie"
     class:is-active={currentStep === 4}
   >
-    <source src={asset("/videos/step4.mp4")} type="video/mp4" />
+    <source src={`${videoBase}/videos/step4.mp4`} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
   <!-- svelte-ignore a11y-media-has-caption -->
   <video
     bind:this={videoElements[4]}
+    preload="auto"
     on:play={handlePlay}
     on:ended={handleEnded}
     on:pause={handlePause}
@@ -666,7 +831,7 @@
     class="main-movie"
     class:is-active={currentStep === 5}
   >
-    <source src={asset("/videos/step5.mp4")} type="video/mp4" />
+    <source src={`${videoBase}/videos/step5.mp4`} type="video/mp4" />
     お使いのブラウザは動画タグをサポートしていません。
   </video>
 
@@ -676,12 +841,20 @@
 
   <div class="material-area" class:is-active={currentStep === 2}>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[2] === 0}>
-      <source src={asset("/videos/material2-1.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[2] === 0}
+    >
+      <source src={`${videoBase}/videos/material2-1.mp4`} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[2] === 1}>
-      <source src={asset("/videos/material2-2.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[2] === 1}
+    >
+      <source src={`${videoBase}/videos/material2-2.mp4`} type="video/mp4" />
     </video>
     <div class="material-video-controls">
       <button
@@ -706,12 +879,20 @@
 
   <div class="material-area" class:is-active={currentStep === 3}>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[3] === 0}>
-      <source src={asset("/videos/material3-1.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[3] === 0}
+    >
+      <source src={`${videoBase}/videos/material3-1.mp4`} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[3] === 1}>
-      <source src={asset("/videos/material3-2.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[3] === 1}
+    >
+      <source src={`${videoBase}/videos/material3-2.mp4`} type="video/mp4" />
     </video>
     <div class="material-video-controls">
       <button
@@ -736,24 +917,40 @@
 
   <div class="material-area" class:is-active={currentStep === 4}>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[4] === 0}>
-      <source src={asset("/videos/material4-1.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[4] === 0}
+    >
+      <source src={`${videoBase}/videos/material4-1.mp4`} type="video/mp4" />
     </video>
     <img class="material-image" src={asset("/images/material4.png")} alt="" />
   </div>
 
   <div class="material-area" class:is-active={currentStep === 5}>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[5] === 0}>
-      <source src={asset("/videos/material5-1.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[5] === 0}
+    >
+      <source src={`${videoBase}/videos/material5-1.mp4`} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[5] === 1}>
-      <source src={asset("/videos/material5-2.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[5] === 1}
+    >
+      <source src={`${videoBase}/videos/material5-2.mp4`} type="video/mp4" />
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
-    <video controls class:is-active={materialVideoIndex[5] === 2}>
-      <source src={asset("/videos/material5-3.mp4")} type="video/mp4" />
+    <video
+      controls
+      preload="auto"
+      class:is-active={materialVideoIndex[5] === 2}
+    >
+      <source src={`${videoBase}/videos/material5-3.mp4`} type="video/mp4" />
     </video>
     <div class="material-video-controls">
       <button

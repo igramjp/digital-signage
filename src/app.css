@@ -534,7 +534,7 @@ button.active {
   overflow: hidden;
   position: absolute;
   top: 33px;
-  right: 33px;
+  left: 1117px;
   width: 770px;
   height: 880px;
   display: none;
