@@ -39,6 +39,11 @@
   let preloadStatus = "準備中..."; // プリロードステータス
   let step2ChartStarted = false; // Step2のチャートアニメーションが開始されたかどうか
   let step3ChartStarted = false; // Step3のチャートアニメーションが開始されたかどうか
+  let step1Note1Active = false; // Step1のnote-area-item1がアクティブかどうか
+  let step2Note2Active = false; // Step2のnote-area-item2がアクティブかどうか
+  let step3Note3Active = false; // Step3のnote-area-item3がアクティブかどうか
+  let step4Note4Active = false; // Step4のnote-area-item4がアクティブかどうか
+  let step5Note5FadingOut = false; // Step5のnote-area-item5がフェードアウト中かどうか
 
   // 各material-areaの動画インデックス管理
   let materialVideoIndex: { [key: number]: number } = {
@@ -69,6 +74,22 @@
       "/videos/material5-1.mp4",
       "/videos/material5-2.mp4",
       "/videos/material5-3.mp4",
+    ],
+  };
+
+  // 各ステップの動画ファイルのタイトル
+  const materialVideoTitles: { [key: number]: string[] } = {
+    1: [], // 画像のみ
+    2: [
+      "「亜硝酸リチウム水溶液の注入状況」",
+      "「再不動態化のモニタリング状況」",
+    ],
+    3: ["「エアリフトの実施状況」", "「エアリフトの模擬状況」"],
+    4: ["「水溶液除去の状況」"],
+    5: [
+      "「グラウト再注入の状況」",
+      "「グラウトの充填状況」",
+      "「グラウト充填確認の状況」",
     ],
   };
 
@@ -129,6 +150,26 @@
       currentTime = video.currentTime;
       duration = video.duration || 0;
 
+      // Step1の動画が21秒に達したらnote-area-item1をアクティブに
+      if (currentStep === 1 && currentTime >= 21 && !step1Note1Active) {
+        step1Note1Active = true;
+      }
+
+      // Step1の動画が0秒付近に戻ったらnote-area-item1を非アクティブに
+      if (currentStep === 1 && currentTime < 1 && step1Note1Active) {
+        step1Note1Active = false;
+      }
+
+      // Step2の動画が2秒に達したらnote-area-item2をアクティブに
+      if (currentStep === 2 && currentTime >= 2 && !step2Note2Active) {
+        step2Note2Active = true;
+      }
+
+      // Step2の動画が0秒付近に戻ったら、note2を非アクティブに
+      if (currentStep === 2 && currentTime < 1 && step2Note2Active) {
+        step2Note2Active = false;
+      }
+
       // Step2の動画が0秒付近に戻ったら、チャートをクリアしてフラグをリセット
       if (currentStep === 2 && currentTime < 1 && step2ChartStarted) {
         step2ChartStarted = false;
@@ -149,6 +190,16 @@
         d3ChartStep2Component.rerender();
       }
 
+      // Step3の動画が2秒に達したらnote-area-item3をアクティブに
+      if (currentStep === 3 && currentTime >= 2 && !step3Note3Active) {
+        step3Note3Active = true;
+      }
+
+      // Step3の動画が0秒付近に戻ったら、note3を非アクティブに
+      if (currentStep === 3 && currentTime < 1 && step3Note3Active) {
+        step3Note3Active = false;
+      }
+
       // Step3の動画が0秒付近に戻ったら、チャートをクリアしてフラグをリセット
       if (currentStep === 3 && currentTime < 1 && step3ChartStarted) {
         step3ChartStarted = false;
@@ -167,6 +218,26 @@
       ) {
         step3ChartStarted = true;
         d3ChartStep3Component.rerender();
+      }
+
+      // Step4の動画が5秒に達したらnote-area-item4をアクティブに
+      if (currentStep === 4 && currentTime >= 5 && !step4Note4Active) {
+        step4Note4Active = true;
+      }
+
+      // Step4の動画が0秒付近に戻ったら、note4を非アクティブに
+      if (currentStep === 4 && currentTime < 1 && step4Note4Active) {
+        step4Note4Active = false;
+      }
+
+      // Step5の動画が28秒を超えたら、note5をフェードアウト開始
+      if (currentStep === 5 && currentTime >= 28 && !step5Note5FadingOut) {
+        step5Note5FadingOut = true;
+      }
+
+      // Step5の動画が0秒付近に戻ったら、フェードアウトをリセット
+      if (currentStep === 5 && currentTime < 1 && step5Note5FadingOut) {
+        step5Note5FadingOut = false;
       }
     }
   }
@@ -243,6 +314,11 @@
       "/images/icon-next.svg",
       "/images/material1.svg",
       "/images/material4.webp",
+      "/images/note1.svg",
+      "/images/note2.svg",
+      "/images/note3.svg",
+      "/images/note4.svg",
+      "/images/note5.svg",
     ];
 
     // マニフェスト由来の全画像・全動画
@@ -603,10 +679,16 @@
       newVideo.play();
     }
 
+    // step1に切り替わった場合、note1フラグをリセット
+    if (step === 1) {
+      step1Note1Active = false;
+    }
+
     // step2に切り替わった場合、チャートアニメーションフラグをリセット
     // （アニメーションは動画が13秒に達したときに開始される）
     if (step === 2) {
       step2ChartStarted = false;
+      step2Note2Active = false; // note2もリセット
       // material動画インデックスを0（material2-1）にリセット
       materialVideoIndex[2] = 0;
       // material2-1.mp4を自動再生
@@ -624,6 +706,7 @@
     // （アニメーションは動画が7秒に達したときに開始される）
     if (step === 3) {
       step3ChartStarted = false;
+      step3Note3Active = false; // note3もリセット
       // material動画インデックスを0（material3-1）にリセット
       materialVideoIndex[3] = 0;
       // material3-1.mp4を自動再生
@@ -639,6 +722,7 @@
 
     // step4に切り替わった場合
     if (step === 4) {
+      step4Note4Active = false; // note4もリセット
       // material4-1.mp4を自動再生
       setTimeout(() => {
         if (material4Video1) {
@@ -652,6 +736,7 @@
 
     // step5に切り替わった場合
     if (step === 5) {
+      step5Note5FadingOut = false; // フェードアウトフラグをリセット（note5は最初から表示）
       // material動画インデックスを0（material5-1）にリセット
       materialVideoIndex[5] = 0;
       // material5-1.mp4を自動再生
@@ -897,6 +982,9 @@
       >
         <img src={asset("/images/icon-next.svg")} alt="next" />
       </button>
+      <div class="material-video-title">
+        {materialVideoTitles[2][materialVideoIndex[2]]}
+      </div>
     </div>
     <div class="graph-area">
       <D3ChartStep2 bind:this={d3ChartStep2Component} />
@@ -937,6 +1025,9 @@
       >
         <img src={asset("/images/icon-next.svg")} alt="next" />
       </button>
+      <div class="material-video-title">
+        {materialVideoTitles[3][materialVideoIndex[3]]}
+      </div>
     </div>
     <div class="graph-area">
       <D3ChartStep3 bind:this={d3ChartStep3Component} />
@@ -954,6 +1045,9 @@
       <source src={`${videoBase}/videos/material4-1.mp4`} type="video/mp4" />
     </video>
     <img class="material-image" src={asset("/images/material4.webp")} alt="" />
+    <div class="material-video-title material-video-title4">
+      {materialVideoTitles[4][materialVideoIndex[4]]}
+    </div>
   </div>
 
   <div class="material-area" class:is-active={currentStep === 5}>
@@ -999,7 +1093,75 @@
       >
         <img src={asset("/images/icon-next.svg")} alt="next" />
       </button>
+      <div class="material-video-title">
+        {materialVideoTitles[5][materialVideoIndex[5]]}
+      </div>
     </div>
+  </div>
+
+  <div class="title-area" class:is-active={currentStep === 1}>
+    <div class="title-area-item">リパッシブ工法の適用</div>
+  </div>
+
+  <div class="title-area" class:is-active={currentStep === 2}>
+    <div class="title-area-item">亜硝酸リチウム水溶液の注入</div>
+  </div>
+
+  <div class="title-area" class:is-active={currentStep === 3}>
+    <div class="title-area-item">エアリフト</div>
+  </div>
+
+  <div class="title-area" class:is-active={currentStep === 4}>
+    <div class="title-area-item">亜硝酸リチウム水溶液の除去</div>
+  </div>
+
+  <div class="title-area" class:is-active={currentStep === 5}>
+    <div class="title-area-item">グラウト再注入</div>
+  </div>
+
+  <div class="note-area" class:is-active={currentStep === 1}>
+    <img
+      class="note-area-item1"
+      class:is-active={step1Note1Active}
+      src={asset("/images/note1.svg")}
+      alt=""
+    />
+  </div>
+
+  <div class="note-area" class:is-active={currentStep === 2}>
+    <img
+      class="note-area-item2"
+      class:is-active={step2Note2Active}
+      src={asset("/images/note2.svg")}
+      alt=""
+    />
+  </div>
+
+  <div class="note-area" class:is-active={currentStep === 3}>
+    <img
+      class="note-area-item3"
+      class:is-active={step3Note3Active}
+      src={asset("/images/note3.svg")}
+      alt=""
+    />
+  </div>
+
+  <div class="note-area" class:is-active={currentStep === 4}>
+    <img
+      class="note-area-item4"
+      class:is-active={step4Note4Active}
+      src={asset("/images/note4.svg")}
+      alt=""
+    />
+  </div>
+
+  <div class="note-area" class:is-active={currentStep === 5}>
+    <img
+      class="note-area-item5"
+      class:fading-out={step5Note5FadingOut}
+      src={asset("/images/note5.svg")}
+      alt=""
+    />
   </div>
 
   {#if showDataPanel}

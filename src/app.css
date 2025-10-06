@@ -586,11 +586,33 @@ button.active {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 5.5px;
   padding: 16.5px 0;
   margin: 0 auto;
   z-index: 10;
+}
+
+.material-video-title {
+  overflow: hidden;
+  position: relative;
+  width: auto;
+  height: auto;
+  font-size: 24.5px;
+  font-weight: 700;
+  font-family: var(--jp-sans);
+  line-height: 1.5;
+  color: var(--color-primary);
+  text-align: right;
+}
+
+.material-video-title4 {
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: auto;
+  text-align: right;
+  display: none;
 }
 
 .material-btn {
@@ -599,7 +621,7 @@ button.active {
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.36);
+  background: var(--color-secondary);
   color: white;
   font-size: 20px;
   font-weight: bold;
@@ -626,15 +648,23 @@ button.active {
 }
 
 .material-btn:hover {
-  background: var(--color-primary);
+  background: var(--color-secondary);
+  opacity: 0.82;
 }
 
 .material-video-counter {
-  color: #888;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 28px;
+  font-weight: 700;
   min-width: 50px;
   text-align: center;
+  display: block;
+  background-color: var(--color-primary);
+  height: 55px;
+  line-height: 53px;
+  color: #fff;
+  border-radius: 27.5px;
+  padding: 0px 22px;
+  letter-spacing: -0.05em;
 }
 
 .graph-area {
@@ -940,4 +970,153 @@ button.active {
   display: flex !important;
   opacity: 1 !important;
   visibility: visible !important;
+}
+
+.title-area {
+  overflow: hidden;
+  position: absolute;
+  top: 33px;
+  left: 33px;
+  width: auto;
+  height: auto;
+  display: none;
+  justify-content: flex-start;
+  align-items: flex-start;
+  z-index: 1;
+  opacity: 0;
+}
+
+.title-area.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.title-area-item {
+  overflow: hidden;
+  position: relative;
+  width: max-content;
+  height: auto;
+  font-size: 35px;
+  font-weight: 700;
+  font-family: var(--jp-sans);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  font-feature-settings: 'palt';
+  color: #fff;
+  background: var(--color-primary);
+  padding: 11px 22px 14px 22px;
+  border-radius: 11px;
+}
+
+.note-area {
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  display: none;
+  justify-content: flex-start;
+  align-items: flex-start;
+  z-index: 1;
+  opacity: 0;
+}
+
+.note-area.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.note-area-item1 {
+  overflow: hidden;
+  position: relative;
+  margin: 461.1272px 0 0 128.7044px;
+  width: 471.9648px;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  z-index: 1;
+  opacity: 0;
+}
+
+.note-area-item1.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.note-area-item2 {
+  overflow: hidden;
+  position: relative;
+  margin: 359.3237px 0 0 121.6309px;
+  width: 114px;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  z-index: 1;
+  opacity: 0;
+}
+
+.note-area-item2.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.note-area-item3 {
+  overflow: hidden;
+  position: relative;
+  margin: 833.8469px 0 0 616.7917px;
+  width: 401.8784px;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  z-index: 1;
+  opacity: 0;
+}
+
+.note-area-item3.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.note-area-item4 {
+  overflow: hidden;
+  position: relative;
+  margin: 461.1272px 0 0 128.7044px;
+  width: 889.9656px;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  z-index: 1;
+  opacity: 0;
+}
+
+.note-area-item4.is-active {
+  display: block;
+  animation: fadeIn 0.5s forwards;
+}
+
+.note-area-item5 {
+  overflow: hidden;
+  position: relative;
+  margin: 461.1272px 0 0 128.7044px;
+  width: 471.9648px;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  z-index: 1;
+  opacity: 1;
+}
+
+.note-area-item5.fading-out {
+  animation: fadeOut 1s forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
 }
