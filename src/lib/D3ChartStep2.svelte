@@ -4,9 +4,15 @@
 
   let chartContainer: HTMLDivElement;
   let chartCreated = false;
+  let svg: any;
+  let g: any;
+  let x: any;
+  let y: any;
+  let data: any[];
 
+  // onMountで軸と背景を先に表示
   onMount(() => {
-    createChart();
+    createChartBackground();
   });
 
   // コンポーネントが破棄される時にチャートをクリア
@@ -17,17 +23,27 @@
     chartCreated = false;
   });
 
-  // 再描画用の関数をエクスポート
+  // データアニメーション開始用の関数をエクスポート
   export function rerender() {
-    if (chartContainer) {
-      chartContainer.innerHTML = "";
-      chartCreated = false;
+    if (!chartCreated) {
+      createChartBackground();
     }
-    createChart();
+    startDataAnimation();
   }
 
-  function createChart() {
-    if (chartCreated) return; // 既に作成済みの場合はスキップ
+  // データ要素のみをクリア（軸と背景は残す）
+  export function clearData() {
+    if (!chartCreated || !g) return;
+
+    g.selectAll(".line").remove();
+    g.selectAll(".dot").remove();
+    g.selectAll(".annot").remove();
+    g.selectAll(".annot-group").remove();
+  }
+
+  // 軸と背景を作成（アニメーションなし）
+  function createChartBackground() {
+    if (chartCreated) return;
 
     // データ型定義
     interface DataPoint {
@@ -43,11 +59,8 @@
       -145.0, -136.0, -128.0, -122.0, -115.0, -111.0, -105.5, -101.5, -99.0,
       -97.0, -96.0, -95.0, -95.0, -95.0,
     ];
-    const data: DataPoint[] = xs.map((t, i) => ({ t, v: ys[i] }));
+    data = xs.map((t, i) => ({ t, v: ys[i] }));
 
-    const totalDuration = 13500; // データ範囲(0→lastX)の表示に要する時間
-    const startDelay = 0; // 即時開始（ディレイ無し）
-    const lastX = d3.max(data, (d: DataPoint) => d.t); // 例: 13.5
     const maxX = 30; // 横軸の最大値
 
     // SVGサイズ
@@ -60,7 +73,7 @@
     const innerHeight = height - margin.top - margin.bottom;
 
     // SVG作成
-    const svg = d3
+    svg = d3
       .select(chartContainer)
       .append("svg")
       .attr("width", width)
@@ -68,22 +81,22 @@
       .attr("role", "img")
       .attr("aria-label", "PC鋼材の電位 時間変化グラフ（Step2）");
 
-    const g = svg
+    g = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     // スケール & 軸
-    const x = d3.scaleLinear().domain([0, maxX]).range([0, innerWidth]);
-    const y = d3.scaleLinear().domain([-200, 0]).nice().range([innerHeight, 0]);
+    x = d3.scaleLinear().domain([0, maxX]).range([0, innerWidth]);
+    y = d3.scaleLinear().domain([-200, 0]).nice().range([innerHeight, 0]);
 
     const xAxis = d3
       .axisBottom(x)
       .tickValues([0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30])
-      .tickFormat(d3.format(".0f"));
+      .tickFormat(d3.format(".0f") as any);
     const yAxis = d3
       .axisLeft(y)
       .tickValues([-200, -160, -120, -80, -40, 0])
-      .tickFormat(d3.format(".0f"));
+      .tickFormat(d3.format(".0f") as any);
 
     const xGrid = d3
       .axisBottom(x)
@@ -101,14 +114,12 @@
     // グリッド
     g.append("g")
       .attr("class", "grid")
-      // 0.5px オフセットでピクセル境界に揃えて薄消えを防止
       .attr("transform", `translate(0.5,${innerHeight + 0.5})`)
       .call(xGrid as any)
       .selectAll("line")
       .attr("stroke-width", 1);
     g.append("g")
       .attr("class", "grid")
-      // 0.5px オフセットでピクセル境界に揃えて薄消えを防止
       .attr("transform", `translate(0.5,0.5)`)
       .call(yGrid as any)
       .selectAll("line")
@@ -135,6 +146,33 @@
       .attr("y", -48)
       .attr("text-anchor", "middle")
       .text("PC鋼材の電位 (mV vs SCE)");
+
+    chartCreated = true;
+  }
+
+  // データのアニメーションを開始
+  function startDataAnimation() {
+    if (!chartCreated || !g) return;
+
+    // データ型定義
+    interface DataPoint {
+      t: number;
+      v: number;
+    }
+
+    const totalDuration = 13500; // データ範囲(0→lastX)の表示に要する時間
+    const startDelay = 0; // 即時開始（ディレイ無し）
+    const lastX = d3.max(data, (d: DataPoint) => d.t); // 例: 13.5
+
+    // 既存のデータ要素を削除（再アニメーション用）
+    g.selectAll(".line").remove();
+    g.selectAll(".dot").remove();
+    g.selectAll(".annot").remove();
+    g.selectAll("g")
+      .filter(function (this: any) {
+        return d3.select(this).selectAll(".annot").size() > 0;
+      })
+      .remove();
 
     // 折れ線
     const line = d3
@@ -173,14 +211,18 @@
       .attr("r", 3.5)
       .attr("opacity", 0)
       .transition()
-      // データの範囲(0→lastX)に合わせてタイミングを調整
-      .delay((d: DataPoint) => startDelay + (d.t / (lastX || 1)) * totalDuration)
+      .delay(
+        (d: DataPoint) => startDelay + (d.t / (lastX || 1)) * totalDuration,
+      )
       .duration(250)
       .attr("opacity", 1);
 
     // 注釈（13.5秒の位置に縦線＋ラベル）
     const x13_5 = x(13.5);
-    const lineGroup = g.append("g").attr("opacity", 0);
+    const lineGroup = g
+      .append("g")
+      .attr("class", "annot-group")
+      .attr("opacity", 0);
 
     // 垂直線
     lineGroup
@@ -219,8 +261,6 @@
       .delay(startDelay + totalDuration)
       .duration(300)
       .attr("opacity", 1);
-
-    chartCreated = true;
   }
 </script>
 

@@ -37,6 +37,8 @@
   let preloadComplete = false; // プリロード完了フラグ
   let preloadProgress = 0; // プリロード進捗（0-100）
   let preloadStatus = "準備中..."; // プリロードステータス
+  let step2ChartStarted = false; // Step2のチャートアニメーションが開始されたかどうか
+  let step3ChartStarted = false; // Step3のチャートアニメーションが開始されたかどうか
 
   // 各material-areaの動画インデックス管理
   let materialVideoIndex: { [key: number]: number } = {
@@ -46,6 +48,16 @@
     4: 0, // material4-1.mp4
     5: 0, // material5-1.mp4, material5-2.mp4, material5-3.mp4
   };
+
+  // material-area内の動画要素への参照
+  let material2Video1: HTMLVideoElement;
+  let material2Video2: HTMLVideoElement;
+  let material3Video1: HTMLVideoElement;
+  let material3Video2: HTMLVideoElement;
+  let material4Video1: HTMLVideoElement;
+  let material5Video1: HTMLVideoElement;
+  let material5Video2: HTMLVideoElement;
+  let material5Video3: HTMLVideoElement;
 
   // 各ステップの動画ファイル配列
   const materialVideos: { [key: number]: string[] } = {
@@ -116,6 +128,46 @@
     if (video) {
       currentTime = video.currentTime;
       duration = video.duration || 0;
+
+      // Step2の動画が0秒付近に戻ったら、チャートをクリアしてフラグをリセット
+      if (currentStep === 2 && currentTime < 1 && step2ChartStarted) {
+        step2ChartStarted = false;
+        if (d3ChartStep2Component) {
+          // 軸と背景は残したまま、データのみクリア
+          d3ChartStep2Component.clearData();
+        }
+      }
+
+      // Step2の動画が13秒に達したら、D3チャートのアニメーションを開始
+      if (
+        currentStep === 2 &&
+        currentTime >= 13 &&
+        !step2ChartStarted &&
+        d3ChartStep2Component
+      ) {
+        step2ChartStarted = true;
+        d3ChartStep2Component.rerender();
+      }
+
+      // Step3の動画が0秒付近に戻ったら、チャートをクリアしてフラグをリセット
+      if (currentStep === 3 && currentTime < 1 && step3ChartStarted) {
+        step3ChartStarted = false;
+        if (d3ChartStep3Component) {
+          // 軸と背景は残したまま、データのみクリア
+          d3ChartStep3Component.clearData();
+        }
+      }
+
+      // Step3の動画が7秒に達したら、D3チャートのアニメーションを開始
+      if (
+        currentStep === 3 &&
+        currentTime >= 7 &&
+        !step3ChartStarted &&
+        d3ChartStep3Component
+      ) {
+        step3ChartStarted = true;
+        d3ChartStep3Component.rerender();
+      }
     }
   }
 
@@ -408,6 +460,15 @@
   function playVideo(): void {
     const currentVideo = videoElements[currentStep - 1];
     if (currentVideo) {
+      // 動画が0秒付近から再生される場合、チャートアニメーションフラグをリセット
+      if (currentVideo.currentTime < 1) {
+        if (currentStep === 2) {
+          step2ChartStarted = false;
+        } else if (currentStep === 3) {
+          step3ChartStarted = false;
+        }
+      }
+
       currentVideo.play();
       // 時間情報を更新
       currentTime = currentVideo.currentTime;
@@ -542,19 +603,65 @@
       newVideo.play();
     }
 
-    // step2に戻った場合はD3ChartStep2を再描画
-    if (step === 2 && d3ChartStep2Component) {
-      // 少し遅延させてから再描画（DOM更新を待つ）
+    // step2に切り替わった場合、チャートアニメーションフラグをリセット
+    // （アニメーションは動画が13秒に達したときに開始される）
+    if (step === 2) {
+      step2ChartStarted = false;
+      // material動画インデックスを0（material2-1）にリセット
+      materialVideoIndex[2] = 0;
+      // material2-1.mp4を自動再生
       setTimeout(() => {
-        d3ChartStep2Component.rerender();
+        if (material2Video1) {
+          material2Video1.currentTime = 0;
+          material2Video1.play().catch(() => {
+            // 自動再生が失敗した場合は無視
+          });
+        }
       }, 100);
     }
 
-    // step3に移動した場合はD3ChartStep3を再描画
-    if (step === 3 && d3ChartStep3Component) {
-      // 少し遅延させてから再描画（DOM更新を待つ）
+    // step3に切り替わった場合、チャートアニメーションフラグをリセット
+    // （アニメーションは動画が7秒に達したときに開始される）
+    if (step === 3) {
+      step3ChartStarted = false;
+      // material動画インデックスを0（material3-1）にリセット
+      materialVideoIndex[3] = 0;
+      // material3-1.mp4を自動再生
       setTimeout(() => {
-        d3ChartStep3Component.rerender();
+        if (material3Video1) {
+          material3Video1.currentTime = 0;
+          material3Video1.play().catch(() => {
+            // 自動再生が失敗した場合は無視
+          });
+        }
+      }, 100);
+    }
+
+    // step4に切り替わった場合
+    if (step === 4) {
+      // material4-1.mp4を自動再生
+      setTimeout(() => {
+        if (material4Video1) {
+          material4Video1.currentTime = 0;
+          material4Video1.play().catch(() => {
+            // 自動再生が失敗した場合は無視
+          });
+        }
+      }, 100);
+    }
+
+    // step5に切り替わった場合
+    if (step === 5) {
+      // material動画インデックスを0（material5-1）にリセット
+      materialVideoIndex[5] = 0;
+      // material5-1.mp4を自動再生
+      setTimeout(() => {
+        if (material5Video1) {
+          material5Video1.currentTime = 0;
+          material5Video1.play().catch(() => {
+            // 自動再生が失敗した場合は無視
+          });
+        }
       }, 100);
     }
   }
@@ -759,6 +866,7 @@
   <div class="material-area" class:is-active={currentStep === 2}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material2Video1}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[2] === 0}
@@ -767,6 +875,7 @@
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material2Video2}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[2] === 1}
@@ -797,6 +906,7 @@
   <div class="material-area" class:is-active={currentStep === 3}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material3Video1}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[3] === 0}
@@ -805,6 +915,7 @@
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material3Video2}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[3] === 1}
@@ -835,6 +946,7 @@
   <div class="material-area" class:is-active={currentStep === 4}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material4Video1}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[4] === 0}
@@ -847,6 +959,7 @@
   <div class="material-area" class:is-active={currentStep === 5}>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material5Video1}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[5] === 0}
@@ -855,6 +968,7 @@
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material5Video2}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[5] === 1}
@@ -863,6 +977,7 @@
     </video>
     <!-- svelte-ignore a11y-media-has-caption -->
     <video
+      bind:this={material5Video3}
       controls
       preload="auto"
       class:is-active={materialVideoIndex[5] === 2}

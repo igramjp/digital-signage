@@ -4,9 +4,16 @@
 
   let chartContainer: HTMLDivElement;
   let chartCreated = false;
+  let svg: any;
+  let g: any;
+  let x: any;
+  let y: any;
+  let backgroundData: any[];
+  let data: any[];
 
+  // onMountで軸と背景を先に表示
   onMount(() => {
-    createChart();
+    createChartBackground();
   });
 
   // コンポーネントが破棄される時にチャートをクリア
@@ -17,17 +24,27 @@
     chartCreated = false;
   });
 
-  // 再描画用の関数をエクスポート
+  // データアニメーション開始用の関数をエクスポート
   export function rerender() {
-    if (chartContainer) {
-      chartContainer.innerHTML = "";
-      chartCreated = false;
+    if (!chartCreated) {
+      createChartBackground();
     }
-    createChart();
+    startDataAnimation();
   }
 
-  function createChart() {
-    if (chartCreated) return; // 既に作成済みの場合はスキップ
+  // データ要素のみをクリア（軸と背景は残す）
+  export function clearData() {
+    if (!chartCreated || !g) return;
+
+    g.selectAll(".new-line").remove();
+    g.selectAll(".new-dot").remove();
+    g.selectAll(".new-annot").remove();
+    g.selectAll(".final-annot-group").remove();
+  }
+
+  // 軸と背景を作成（アニメーションなし）
+  function createChartBackground() {
+    if (chartCreated) return;
 
     // データ型定義
     interface DataPoint {
@@ -43,7 +60,7 @@
       -145.0, -136.0, -128.0, -122.0, -115.0, -111.0, -105.5, -101.5, -99.0,
       -97.0, -96.0, -95.0, -95.0, -95.0,
     ];
-    const backgroundData: DataPoint[] = backgroundXs.map((t, i) => ({
+    backgroundData = backgroundXs.map((t, i) => ({
       t,
       v: backgroundYs[i],
     }));
@@ -57,14 +74,8 @@
       -145.0, -136.0, -128.0, -122.0, -115.0, -111.0, -105.5, -101.5, -99.0,
       -97.0, -96.0, -95.0, -95.0, -95.0,
     ];
-    const newData: DataPoint[] = newXs.map((t, i) => ({ t, v: newYs[i] }));
+    data = newXs.map((t, i) => ({ t, v: newYs[i] }));
 
-    const totalDuration = 13500; // データ範囲(0→lastX)の表示に要する時間
-    const startDelay = 0; // 即時開始（ディレイ無し）
-    const lastX = d3.max(
-      [...backgroundData, ...newData],
-      (d: DataPoint) => d.t,
-    ); // 最大値
     const maxX = 30; // 横軸の最大値
 
     // SVGサイズ
@@ -77,7 +88,7 @@
     const innerHeight = height - margin.top - margin.bottom;
 
     // SVG作成
-    const svg = d3
+    svg = d3
       .select(chartContainer)
       .append("svg")
       .attr("width", width)
@@ -85,22 +96,22 @@
       .attr("role", "img")
       .attr("aria-label", "PC鋼材の電位 時間変化グラフ（Step3）");
 
-    const g = svg
+    g = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     // スケール & 軸
-    const x = d3.scaleLinear().domain([0, maxX]).range([0, innerWidth]);
-    const y = d3.scaleLinear().domain([-200, 0]).nice().range([innerHeight, 0]);
+    x = d3.scaleLinear().domain([0, maxX]).range([0, innerWidth]);
+    y = d3.scaleLinear().domain([-200, 0]).nice().range([innerHeight, 0]);
 
     const xAxis = d3
       .axisBottom(x)
       .tickValues([0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30])
-      .tickFormat(d3.format(".0f"));
+      .tickFormat(d3.format(".0f") as any);
     const yAxis = d3
       .axisLeft(y)
       .tickValues([-200, -160, -120, -80, -40, 0])
-      .tickFormat(d3.format(".0f"));
+      .tickFormat(d3.format(".0f") as any);
 
     const xGrid = d3
       .axisBottom(x)
@@ -151,16 +162,15 @@
       .attr("text-anchor", "middle")
       .text("PC鋼材の電位 (mV vs SCE)");
 
-    // 折れ線
+    // 折れ線定義
     const line = d3
-      .line<DataPoint>()
-      .x((d: DataPoint) => x(d.t))
-      .y((d: DataPoint) => y(d.v))
+      .line<any>()
+      .x((d: any) => x(d.t))
+      .y((d: any) => y(d.v))
       .curve(d3.curveMonotoneX);
 
     // 背景グラフ（step2のデータをグレーで表示）
-    const backgroundPath = g
-      .append("path")
+    g.append("path")
       .datum(backgroundData)
       .attr("class", "background-line")
       .attr("d", line);
@@ -171,8 +181,8 @@
       .enter()
       .append("circle")
       .attr("class", "background-dot")
-      .attr("cx", (d: DataPoint) => x(d.t))
-      .attr("cy", (d: DataPoint) => y(d.v))
+      .attr("cx", (d: any) => x(d.t))
+      .attr("cy", (d: any) => y(d.v))
       .attr("r", 3.5);
 
     // 注釈（13.5秒の位置に縦線＋ラベル）- 最初から表示（グレー）
@@ -210,10 +220,44 @@
       .attr("font-size", 13)
       .text("不動態化");
 
+    chartCreated = true;
+  }
+
+  // データのアニメーションを開始
+  function startDataAnimation() {
+    if (!chartCreated || !g) return;
+
+    // データ型定義
+    interface DataPoint {
+      t: number;
+      v: number;
+    }
+
+    const totalDuration = 13500; // データ範囲(0→lastX)の表示に要する時間
+    const startDelay = 0; // 即時開始（ディレイ無し）
+    const lastX = d3.max([...backgroundData, ...data], (d: DataPoint) => d.t); // 最大値
+
+    // 既存のアニメーション要素を削除（再アニメーション用）
+    g.selectAll(".new-line").remove();
+    g.selectAll(".new-dot").remove();
+    g.selectAll(".new-annot").remove();
+    g.selectAll("g")
+      .filter(function (this: any) {
+        return d3.select(this).selectAll(".new-annot").size() > 0;
+      })
+      .remove();
+
+    // 折れ線定義
+    const line = d3
+      .line<DataPoint>()
+      .x((d: DataPoint) => x(d.t))
+      .y((d: DataPoint) => y(d.v))
+      .curve(d3.curveMonotoneX);
+
     // 新しいデータの折れ線（青い線）
     const newPath = g
       .append("path")
-      .datum(newData)
+      .datum(data)
       .attr("class", "new-line")
       .attr("d", line);
 
@@ -231,7 +275,7 @@
 
     // 新しいデータの点（オレンジのドット）
     g.selectAll(".new-dot")
-      .data(newData)
+      .data(data)
       .enter()
       .append("circle")
       .attr("class", "new-dot")
@@ -253,12 +297,15 @@
 
     // 27秒の位置に縦線＋ラベル - 描写完了後に表示（青）
     const x27 = x(27.0);
-    const finalLineGroup = g.append("g").attr("opacity", 0);
+    const finalLineGroup = g
+      .append("g")
+      .attr("class", "final-annot-group")
+      .attr("opacity", 0);
 
     // 最終の垂直線（青）
     finalLineGroup
       .append("line")
-      .attr("class", "final-annot")
+      .attr("class", "final-annot new-annot")
       .attr("x1", x27)
       .attr("x2", x27)
       .attr("y1", y(-200))
@@ -292,8 +339,6 @@
       .delay(startDelay + totalDuration)
       .duration(300)
       .attr("opacity", 1);
-
-    chartCreated = true;
   }
 </script>
 
