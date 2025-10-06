@@ -9,14 +9,16 @@ export const imageFiles: string[] = [
   "/images/icon-stop.svg",
   "/images/init-bg.svg",
   "/images/init-btn.svg",
-  "/images/init-char1.png",
-  "/images/init-char2.png",
-  "/images/init-msg.png",
+  "/images/init-char1.webp",
+  "/images/init-char2.webp",
+  "/images/init-menu1-1.webp",
+  "/images/init-menu1-2.webp",
+  "/images/init-msg.webp",
   "/images/init-ttl.svg",
   "/images/logo.svg",
   "/images/logo.webp",
   "/images/material1.svg",
-  "/images/material4.png"
+  "/images/material4.webp"
 ] as const;
 export const videoFiles: string[] = [
   "/videos/init-menu2.mp4",

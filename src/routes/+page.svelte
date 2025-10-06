@@ -31,8 +31,7 @@
   let d3ChartStep2Component: D3ChartStep2; // D3ChartStep2コンポーネントの参照
   let d3ChartStep3Component: D3ChartStep3; // D3ChartStep3コンポーネントの参照
   let isInitialized = false; // 初期化完了フラグ
-  let showPdf = false; // PDF表示フラグ
-  let currentPdf = ""; // 現在表示中のPDFファイル名
+  let showImages = false; // 画像表示フラグ
   let showVideo = false; // 動画表示フラグ
   let currentVideo = ""; // 現在表示中の動画ファイル名
   let preloadComplete = false; // プリロード完了フラグ
@@ -171,8 +170,14 @@
     // 優先度別にファイルを分類（画像は優先度を付け、残りは自動）
     const criticalFiles = [
       // 最重要：init画面で即座に必要な画像
-      "/images/init-msg.png",
-      "/images/init-char2.png",
+      "/images/init-bg.svg",
+      "/images/init-btn.svg",
+      "/images/init-char1.webp",
+      "/images/init-char2.webp",
+      "/images/init-menu1-1.webp",
+      "/images/init-menu1-2.webp",
+      "/images/init-msg.webp",
+      "/images/init-ttl.svg",
       "/images/logo.svg",
       "/images/logo.webp",
     ];
@@ -185,11 +190,7 @@
       "/images/icon-prev.svg",
       "/images/icon-next.svg",
       "/images/material1.svg",
-      "/images/material4.png",
-      "/images/init-bg.svg",
-      "/images/init-btn.svg",
-      "/images/init-ttl.svg",
-      "/images/init-char1.png",
+      "/images/material4.webp",
     ];
 
     // マニフェスト由来の全画像・全動画
@@ -353,19 +354,14 @@
     showDataPanel = false;
   }
 
-  // PDF表示関数
-  function showPdfViewer(pdfFile: string): void {
-    // ファイル名にパスが含まれていない場合のみ追加（ベースパス対応）
-    currentPdf = pdfFile.startsWith("/")
-      ? `${base}${pdfFile}`
-      : `${base}/pdfs/${pdfFile}`;
-    showPdf = true;
+  // 画像表示関数
+  function showImageViewer(): void {
+    showImages = true;
   }
 
-  // PDF表示を閉じる関数
-  function closePdfViewer(): void {
-    showPdf = false;
-    currentPdf = "";
+  // 画像表示を閉じる関数
+  function closeImageViewer(): void {
+    showImages = false;
   }
 
   // 動画表示関数
@@ -584,14 +580,13 @@
     <button class="init-btn" on:click={handleInitButtonClick}>
       <img src={asset("/images/init-btn.svg")} alt="ENTER" />
     </button>
-    <img class="init-char1" src={asset("/images/init-char1.png")} alt="" />
-    <img class="init-char2" src={asset("/images/init-char2.png")} alt="" />
-    <img class="init-msg" src={asset("/images/init-msg.png")} alt="" />
+    <img class="init-char1" src={asset("/images/init-char1.webp")} alt="" />
+    <img class="init-char2" src={asset("/images/init-char2.webp")} alt="" />
+    <img class="init-msg" src={asset("/images/init-msg.webp")} alt="" />
 
     <div class="init-menu">
-      <button
-        class="init-menu1"
-        on:click={() => showPdfViewer("init-menu1.pdf")}>カタログ</button
+      <button class="init-menu1" on:click={() => showImageViewer()}
+        >カタログ</button
       >
       <button
         class="init-menu2"
@@ -607,22 +602,31 @@
   </div>
 {/if}
 
-{#if showPdf}
+{#if showImages}
   <div
-    class="pdf-overlay"
-    on:click={closePdfViewer}
-    on:keydown={(e) => e.key === "Escape" && closePdfViewer()}
+    class="images-overlay"
+    on:click={closeImageViewer}
+    on:keydown={(e) => e.key === "Escape" && closeImageViewer()}
     role="button"
     tabindex="0"
   >
     <div
-      class="pdf-container"
+      class="images-container"
       on:click|stopPropagation
       on:keydown|stopPropagation
       role="button"
       tabindex="0"
     >
-      <iframe src={currentPdf} class="pdf-viewer" title="PDF表示"></iframe>
+      <img
+        src={asset("/images/init-menu1-1.webp")}
+        alt="カタログ 1ページ目"
+        class="catalog-image"
+      />
+      <img
+        src={asset("/images/init-menu1-2.webp")}
+        alt="カタログ 2ページ目"
+        class="catalog-image"
+      />
     </div>
   </div>
 {/if}
@@ -824,7 +828,7 @@
     >
       <source src={`${videoBase}/videos/material4-1.mp4`} type="video/mp4" />
     </video>
-    <img class="material-image" src={asset("/images/material4.png")} alt="" />
+    <img class="material-image" src={asset("/images/material4.webp")} alt="" />
   </div>
 
   <div class="material-area" class:is-active={currentStep === 5}>
