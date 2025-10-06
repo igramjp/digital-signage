@@ -337,6 +337,19 @@
         await appWindow.setFullscreen(true);
       } catch (_) {}
     }
+
+    // 初回表示時に全てのステップの動画を読み込むため、
+    // Step2に切り替えてすぐにStep1に戻す（ユーザーには見えない速度で実行）
+    await new Promise((resolve) => setTimeout(resolve, 50)); // DOMの更新を待つ
+
+    if (videoElements.length >= 2) {
+      // Step2に一瞬切り替え（動画要素を初期化）
+      currentStep = 2;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Step1に戻す
+      currentStep = 1;
+    }
   }
 
   // 終了ボタンクリック時の処理
