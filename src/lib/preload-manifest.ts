@@ -19,11 +19,11 @@ export const imageFiles: string[] = [
   "/images/logo.webp",
   "/images/material1.svg",
   "/images/material4.webp",
+  "/images/material5.webp",
   "/images/note1.svg",
   "/images/note2.svg",
   "/images/note3.svg",
-  "/images/note4.svg",
-  "/images/note5.svg"
+  "/images/note4.svg"
 ] as const;
 export const videoFiles: string[] = [
   "/videos/init-menu2.mp4",

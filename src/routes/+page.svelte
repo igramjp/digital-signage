@@ -43,7 +43,6 @@
   let step2Note2Active = false; // Step2のnote-area-item2がアクティブかどうか
   let step3Note3Active = false; // Step3のnote-area-item3がアクティブかどうか
   let step4Note4Active = false; // Step4のnote-area-item4がアクティブかどうか
-  let step5Note5FadingOut = false; // Step5のnote-area-item5がフェードアウト中かどうか
 
   // 各material-areaの動画インデックス管理
   let materialVideoIndex: { [key: number]: number } = {
@@ -220,24 +219,14 @@
         d3ChartStep3Component.rerender();
       }
 
-      // Step4の動画が5秒に達したらnote-area-item4をアクティブに
-      if (currentStep === 4 && currentTime >= 5 && !step4Note4Active) {
+      // Step4の動画が2秒に達したらnote-area-item4をアクティブに
+      if (currentStep === 4 && currentTime >= 2 && !step4Note4Active) {
         step4Note4Active = true;
       }
 
       // Step4の動画が0秒付近に戻ったら、note4を非アクティブに
       if (currentStep === 4 && currentTime < 1 && step4Note4Active) {
         step4Note4Active = false;
-      }
-
-      // Step5の動画が28秒を超えたら、note5をフェードアウト開始
-      if (currentStep === 5 && currentTime >= 28 && !step5Note5FadingOut) {
-        step5Note5FadingOut = true;
-      }
-
-      // Step5の動画が0秒付近に戻ったら、フェードアウトをリセット
-      if (currentStep === 5 && currentTime < 1 && step5Note5FadingOut) {
-        step5Note5FadingOut = false;
       }
     }
   }
@@ -314,11 +303,11 @@
       "/images/icon-next.svg",
       "/images/material1.svg",
       "/images/material4.webp",
+      "/images/material5.webp",
       "/images/note1.svg",
       "/images/note2.svg",
       "/images/note3.svg",
       "/images/note4.svg",
-      "/images/note5.svg",
     ];
 
     // マニフェスト由来の全画像・全動画
@@ -736,7 +725,6 @@
 
     // step5に切り替わった場合
     if (step === 5) {
-      step5Note5FadingOut = false; // フェードアウトフラグをリセット（note5は最初から表示）
       // material動画インデックスを0（material5-1）にリセット
       materialVideoIndex[5] = 0;
       // material5-1.mp4を自動再生
@@ -1097,6 +1085,7 @@
         {materialVideoTitles[5][materialVideoIndex[5]]}
       </div>
     </div>
+    <img class="material-image" src={asset("/images/material5.webp")} alt="" />
   </div>
 
   <div class="title-area" class:is-active={currentStep === 1}>
@@ -1151,15 +1140,6 @@
       class="note-area-item4"
       class:is-active={step4Note4Active}
       src={asset("/images/note4.svg")}
-      alt=""
-    />
-  </div>
-
-  <div class="note-area" class:is-active={currentStep === 5}>
-    <img
-      class="note-area-item5"
-      class:fading-out={step5Note5FadingOut}
-      src={asset("/images/note5.svg")}
       alt=""
     />
   </div>

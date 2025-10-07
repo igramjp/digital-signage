@@ -1079,10 +1079,9 @@ button.active {
 }
 
 .note-area-item4 {
-  overflow: hidden;
   position: relative;
-  margin: 461.1272px 0 0 128.7044px;
-  width: 889.9656px;
+  margin: 833.8469px 0 0 616.7917px;
+  width: 401.8784px;
   height: auto;
   object-fit: contain;
   object-position: center;
@@ -1093,30 +1092,4 @@ button.active {
 .note-area-item4.is-active {
   display: block;
   animation: fadeIn 0.5s forwards;
-}
-
-.note-area-item5 {
-  overflow: hidden;
-  position: relative;
-  margin: 461.1272px 0 0 128.7044px;
-  width: 471.9648px;
-  height: auto;
-  object-fit: contain;
-  object-position: center;
-  z-index: 1;
-  opacity: 1;
-}
-
-.note-area-item5.fading-out {
-  animation: fadeOut 1s forwards;
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 0;
-  }
 }
