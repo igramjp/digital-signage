@@ -121,8 +121,8 @@
     // 連続再生モードの場合、次のステップに自動的に進む
     if (isContinuousMode) {
       if (currentStep < 5) {
-        // 3秒待機してから次のステップに進む（自動進行なので連続再生モードを維持）
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // 5秒待機してから次のステップに進む（自動進行なので連続再生モードを維持）
+        await new Promise((resolve) => setTimeout(resolve, 5000));
         await switchVideo(currentStep + 1, true);
       } else {
         // Step5が終了したら連続再生モードを解除
@@ -183,7 +183,7 @@
       // Step2の動画が13秒に達したら、D3チャートのアニメーションを開始
       if (
         currentStep === 2 &&
-        currentTime >= 13 &&
+        currentTime >= 7 &&
         !step2ChartStarted &&
         d3ChartStep2Component
       ) {
@@ -675,7 +675,11 @@
   }
 
   // 動画を切り替える
-  async function switchVideo(step: number, isAutoAdvance: boolean = false, forceRestart: boolean = false): Promise<void> {
+  async function switchVideo(
+    step: number,
+    isAutoAdvance: boolean = false,
+    forceRestart: boolean = false,
+  ): Promise<void> {
     if (currentStep === step && !forceRestart) return;
 
     // 手動でステップを切り替えた場合は連続再生モードを解除
@@ -1296,7 +1300,11 @@
     </div>
 
     <div class="continuous-control">
-      <button class="continuous-btn" class:active={isContinuousMode} on:click={continuousPlay}>連続再生</button>
+      <button
+        class="continuous-btn"
+        class:active={isContinuousMode}
+        on:click={continuousPlay}>連続再生</button
+      >
     </div>
 
     <div class="step-control">

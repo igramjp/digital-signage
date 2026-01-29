@@ -233,7 +233,7 @@
       v: number;
     }
 
-    const totalDuration = 13500; // データ範囲(0→lastX)の表示に要する時間
+    const totalDuration = 7000; // データ範囲(0→lastX)の表示に要する時間
     const startDelay = 0; // 即時開始（ディレイ無し）
     const lastX = d3.max([...backgroundData, ...data], (d: DataPoint) => d.t); // 最大値
 
