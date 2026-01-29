@@ -12,14 +12,12 @@
 
   // ベースパス付きアセット解決ヘルパー
   const asset = (p: string) => `${base}${p}`;
-  // Tauri実行判定（WebView内は __TAURI__ が存在）
-  const isTauri =
-    typeof window !== "undefined" &&
-    typeof (window as any).__TAURI__ !== "undefined";
+  // Tauri実行判定（リアクティブ変数として初期化、onMountで確実に判定）
+  let isTauri = false;
   // 動画用ベース
   // Tauri 時はローカルHTTPサーバーのデフォルトポートを先に使い、
   // 後で invoke 取得で上書き（初期の読み込みを速くする）
-  let videoBase: string = isTauri ? "http://127.0.0.1:17820" : base;
+  let videoBase: string = base;
 
   let videoElements: HTMLVideoElement[] = [];
   let isPlaying = false;
@@ -43,6 +41,7 @@
   let step2Note2Active = false; // Step2のnote-area-item2がアクティブかどうか
   let step3Note3Active = false; // Step3のnote-area-item3がアクティブかどうか
   let step4Note4Active = false; // Step4のnote-area-item4がアクティブかどうか
+  let isContinuousMode = false; // 連続再生モードかどうか
 
   // 各material-areaの動画インデックス管理
   let materialVideoIndex: { [key: number]: number } = {
@@ -107,7 +106,7 @@
   }
 
   // 再生終了のトリガー
-  function handleEnded(event: Event): void {
+  async function handleEnded(event: Event): Promise<void> {
     const video = event.target as HTMLVideoElement;
     // console.log("動画再生終了:", event);
     // console.log("終了したステップ:", currentStep);
@@ -119,13 +118,16 @@
       duration = video.duration || 0;
     }
 
-    // 現在のステップに応じた処理例
-    if (currentStep < 5) {
-      // 自動で次のステップに進む場合
-      // switchVideo(currentStep + 1);
-    } else {
-      // Step5の場合、最初に戻る
-      // switchVideo(1);
+    // 連続再生モードの場合、次のステップに自動的に進む
+    if (isContinuousMode) {
+      if (currentStep < 5) {
+        // 3秒待機してから次のステップに進む（自動進行なので連続再生モードを維持）
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await switchVideo(currentStep + 1, true);
+      } else {
+        // Step5が終了したら連続再生モードを解除
+        isContinuousMode = false;
+      }
     }
   }
 
@@ -469,8 +471,8 @@
     }
   }
 
-  // 終了ボタンクリック時の処理
-  function handleExitButtonClick(): void {
+  // 最初に戻るボタンクリック時の処理
+  function handleHomeButtonClick(): void {
     isInitialized = false;
     // 現在の動画を停止
     const currentVideo = videoElements[currentStep - 1];
@@ -482,6 +484,17 @@
     currentStep = 1;
     // データパネルを非表示に
     showDataPanel = false;
+  }
+
+  async function handleExitButtonClick(): Promise<void> {
+    if (isTauri) {
+      try {
+        const { exit } = await import("@tauri-apps/plugin-process");
+        await exit(0);
+      } catch (error) {
+        console.error("アプリケーションの終了に失敗しました:", error);
+      }
+    }
   }
 
   // 画像表示関数
@@ -550,6 +563,8 @@
       currentTime = currentVideo.currentTime;
       duration = currentVideo.duration || 0;
     }
+    // 一時停止時は連続再生モードを解除
+    isContinuousMode = false;
   }
 
   // 動画を手動で停止
@@ -562,10 +577,26 @@
       currentTime = 0;
       duration = currentVideo.duration || 0;
     }
+    // 停止時は連続再生モードを解除
+    isContinuousMode = false;
   }
 
   // コンポーネントマウント時の処理
   onMount(async () => {
+    // Tauri環境の確実な判定（複数の方法で確認）
+    if (typeof window !== "undefined") {
+      const win = window as any;
+      isTauri =
+        typeof win.__TAURI__ !== "undefined" ||
+        typeof win.__TAURI_INTERNALS__ !== "undefined" ||
+        typeof win.__TAURI_METADATA__ !== "undefined";
+    }
+
+    // Tauri環境の場合、videoBaseを初期化
+    if (isTauri) {
+      videoBase = "http://127.0.0.1:17820";
+    }
+
     if (isTauri) {
       // Tauri: ローカル動画サーバーURLを取得→全メディアをプリロード
       try {
@@ -644,13 +675,23 @@
   }
 
   // 動画を切り替える
-  async function switchVideo(step: number): Promise<void> {
-    if (currentStep === step) return;
+  async function switchVideo(step: number, isAutoAdvance: boolean = false, forceRestart: boolean = false): Promise<void> {
+    if (currentStep === step && !forceRestart) return;
+
+    // 手動でステップを切り替えた場合は連続再生モードを解除
+    // （連続再生モードで自動的に進む場合は解除しない）
+    if (!isAutoAdvance) {
+      isContinuousMode = false;
+    }
 
     // 現在の動画を停止
     const currentVideo = videoElements[currentStep - 1];
     if (currentVideo) {
       currentVideo.pause();
+      // forceRestartの場合は現在の動画も最初に戻す
+      if (forceRestart && currentStep === step) {
+        currentVideo.currentTime = 0;
+      }
     }
 
     // 新しいステップに切り替え
@@ -661,11 +702,16 @@
       // 動画の読み込みを確保してから再生
       await ensureVideoLoaded(step);
 
+      // forceRestartの場合は最初から再生
+      if (forceRestart) {
+        newVideo.currentTime = 0;
+      }
+
       // 新しい動画の時間情報を更新
       currentTime = newVideo.currentTime;
       duration = newVideo.duration || 0;
 
-      newVideo.play();
+      await newVideo.play();
     }
 
     // step1に切り替わった場合、note1フラグをリセット
@@ -680,15 +726,7 @@
       step2Note2Active = false; // note2もリセット
       // material動画インデックスを0（material2-1）にリセット
       materialVideoIndex[2] = 0;
-      // material2-1.mp4を自動再生
-      setTimeout(() => {
-        if (material2Video1) {
-          material2Video1.currentTime = 0;
-          material2Video1.play().catch(() => {
-            // 自動再生が失敗した場合は無視
-          });
-        }
-      }, 100);
+      // 最初の動画は手動再生のため、自動再生はしない
     }
 
     // step3に切り替わった場合、チャートアニメーションフラグをリセット
@@ -698,45 +736,29 @@
       step3Note3Active = false; // note3もリセット
       // material動画インデックスを0（material3-1）にリセット
       materialVideoIndex[3] = 0;
-      // material3-1.mp4を自動再生
-      setTimeout(() => {
-        if (material3Video1) {
-          material3Video1.currentTime = 0;
-          material3Video1.play().catch(() => {
-            // 自動再生が失敗した場合は無視
-          });
-        }
-      }, 100);
+      // 最初の動画は手動再生のため、自動再生はしない
     }
 
     // step4に切り替わった場合
     if (step === 4) {
       step4Note4Active = false; // note4もリセット
-      // material4-1.mp4を自動再生
-      setTimeout(() => {
-        if (material4Video1) {
-          material4Video1.currentTime = 0;
-          material4Video1.play().catch(() => {
-            // 自動再生が失敗した場合は無視
-          });
-        }
-      }, 100);
+      // 最初の動画は手動再生のため、自動再生はしない
     }
 
     // step5に切り替わった場合
     if (step === 5) {
       // material動画インデックスを0（material5-1）にリセット
       materialVideoIndex[5] = 0;
-      // material5-1.mp4を自動再生
-      setTimeout(() => {
-        if (material5Video1) {
-          material5Video1.currentTime = 0;
-          material5Video1.play().catch(() => {
-            // 自動再生が失敗した場合は無視
-          });
-        }
-      }, 100);
+      // 最初の動画は手動再生のため、自動再生はしない
     }
+  }
+
+  // 連続再生ボタンクリック時の処理
+  async function continuousPlay(): Promise<void> {
+    // 連続再生モードを開始
+    isContinuousMode = true;
+    // STEP1から開始（強制的に再生するため、forceRestartをtrueにする）
+    await switchVideo(1, true, true);
   }
 
   // material-area内の動画を切り替える
@@ -755,6 +777,62 @@
 
     // オブジェクトの更新を強制的にトリガー
     materialVideoIndex = { ...materialVideoIndex, [step]: newIndex };
+  }
+
+  // 各ステップの動画要素を取得するヘルパー関数
+  function getMaterialVideoElement(
+    step: number,
+    index: number,
+  ): HTMLVideoElement | null {
+    switch (step) {
+      case 2:
+        return index === 0
+          ? material2Video1
+          : index === 1
+            ? material2Video2
+            : null;
+      case 3:
+        return index === 0
+          ? material3Video1
+          : index === 1
+            ? material3Video2
+            : null;
+      case 4:
+        return index === 0 ? material4Video1 : null;
+      case 5:
+        if (index === 0) return material5Video1;
+        if (index === 1) return material5Video2;
+        if (index === 2) return material5Video3;
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  // material動画の終了時に次の動画を自動再生（ループなし）
+  function handleMaterialVideoEnded(step: number, currentIndex: number): void {
+    const videos = materialVideos[step];
+    if (videos.length <= 1) return; // 動画が1本以下の場合は何もしない
+
+    // 最後の動画の場合は何もしない（ループ再生なし）
+    if (currentIndex >= videos.length - 1) return;
+
+    // 次の動画のインデックス
+    const nextIndex = currentIndex + 1;
+
+    // 次の動画要素を取得
+    const nextVideo = getMaterialVideoElement(step, nextIndex);
+    if (nextVideo) {
+      // インデックスを更新
+      materialVideoIndex = { ...materialVideoIndex, [step]: nextIndex };
+      // 次の動画を再生
+      setTimeout(() => {
+        nextVideo.currentTime = 0;
+        nextVideo.play().catch(() => {
+          // 自動再生が失敗した場合は無視
+        });
+      }, 100);
+    }
   }
 </script>
 
@@ -943,6 +1021,7 @@
       controls
       preload="auto"
       class:is-active={materialVideoIndex[2] === 0}
+      on:ended={() => handleMaterialVideoEnded(2, 0)}
     >
       <source src={`${videoBase}/videos/material2-1.mp4`} type="video/mp4" />
     </video>
@@ -952,6 +1031,7 @@
       controls
       preload="auto"
       class:is-active={materialVideoIndex[2] === 1}
+      on:ended={() => handleMaterialVideoEnded(2, 1)}
     >
       <source src={`${videoBase}/videos/material2-2.mp4`} type="video/mp4" />
     </video>
@@ -986,6 +1066,7 @@
       controls
       preload="auto"
       class:is-active={materialVideoIndex[3] === 0}
+      on:ended={() => handleMaterialVideoEnded(3, 0)}
     >
       <source src={`${videoBase}/videos/material3-1.mp4`} type="video/mp4" />
     </video>
@@ -995,6 +1076,7 @@
       controls
       preload="auto"
       class:is-active={materialVideoIndex[3] === 1}
+      on:ended={() => handleMaterialVideoEnded(3, 1)}
     >
       <source src={`${videoBase}/videos/material3-2.mp4`} type="video/mp4" />
     </video>
@@ -1045,6 +1127,7 @@
       controls
       preload="auto"
       class:is-active={materialVideoIndex[5] === 0}
+      on:ended={() => handleMaterialVideoEnded(5, 0)}
     >
       <source src={`${videoBase}/videos/material5-1.mp4`} type="video/mp4" />
     </video>
@@ -1054,6 +1137,7 @@
       controls
       preload="auto"
       class:is-active={materialVideoIndex[5] === 1}
+      on:ended={() => handleMaterialVideoEnded(5, 1)}
     >
       <source src={`${videoBase}/videos/material5-2.mp4`} type="video/mp4" />
     </video>
@@ -1063,6 +1147,7 @@
       controls
       preload="auto"
       class:is-active={materialVideoIndex[5] === 2}
+      on:ended={() => handleMaterialVideoEnded(5, 2)}
     >
       <source src={`${videoBase}/videos/material5-3.mp4`} type="video/mp4" />
     </video>
@@ -1179,7 +1264,12 @@
         <p>総再生時間</p>
         <p>{formatTime(duration)}</p>
       </div>
-      <button class="exit-btn" on:click={handleExitButtonClick}>EXIT</button>
+      <button class="home-btn" on:click={handleHomeButtonClick}
+        >最初に戻る</button
+      >
+      {#if isTauri}
+        <button class="exit-btn" on:click={handleExitButtonClick}>終了</button>
+      {/if}
     </div>
   {/if}
 
@@ -1203,6 +1293,10 @@
       >
         <img src={asset("/images/icon-stop.svg")} alt="stop" />
       </button>
+    </div>
+
+    <div class="continuous-control">
+      <button class="continuous-btn" class:active={isContinuousMode} on:click={continuousPlay}>連続再生</button>
     </div>
 
     <div class="step-control">
