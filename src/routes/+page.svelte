@@ -592,40 +592,12 @@
         typeof win.__TAURI_METADATA__ !== "undefined";
     }
 
-    // Tauri環境の場合、videoBaseを初期化
-    if (isTauri) {
-      videoBase = "http://127.0.0.1:17820";
-    }
-
-    if (isTauri) {
-      // Tauri: ローカル動画サーバーURLを取得→全メディアをプリロード
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        // サーバー起動待ち（最大 ~5 秒）
-        for (let i = 0; i < 50; i++) {
-          try {
-            const url = (await invoke<string>("server_base_url")) as string;
-            if (url) {
-              videoBase = url;
-              break;
-            }
-          } catch (_) {
-            // retry shortly
-          }
-          await new Promise((r) => setTimeout(r, 100));
-        }
-      } catch (_) {}
-
-      // 画像/動画すべてプリロード（バックグラウンドで実行）
-      preloadAllMedia({ includeVideos: true });
+    // Web: 体感速度優先（動画は後回し）
+    const startPreload = () => preloadAllMedia({ includeVideos: false });
+    if ("requestIdleCallback" in window) {
+      (window as any).requestIdleCallback(startPreload, { timeout: 1500 });
     } else {
-      // Web: 体感速度優先（動画は後回し）
-      const startPreload = () => preloadAllMedia({ includeVideos: false });
-      if ("requestIdleCallback" in window) {
-        (window as any).requestIdleCallback(startPreload, { timeout: 1500 });
-      } else {
-        setTimeout(startPreload, 300);
-      }
+      setTimeout(startPreload, 300);
     }
 
     // 動画の最適化設定
