@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "ps-construction",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "identifier": "jp.co.psc.ps-construction",
   "build": {
     "frontendDist": "../build",
@@ -42,6 +42,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "dmg": {
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        }
+      }
+    }
   }
 }
