@@ -32,6 +32,7 @@
   let showImages = false; // 画像表示フラグ
   let showVideo = false; // 動画表示フラグ
   let currentVideo = ""; // 現在表示中の動画ファイル名
+  let videoViewerElement: HTMLVideoElement; // 動画ビューアーの要素参照
   let preloadComplete = false; // プリロード完了フラグ
   let preloadProgress = 0; // プリロード進捗（0-100）
   let preloadStatus = "準備中..."; // プリロードステータス
@@ -105,6 +106,42 @@
     // ここに再生開始時の処理を書く
   }
 
+  // material動画を連続再生する関数
+  async function playAllMaterialVideos(step: number): Promise<void> {
+    const videos = materialVideos[step];
+    if (videos.length === 0) return; // material動画がない場合は何もしない
+
+    // material動画インデックスを0にリセット
+    materialVideoIndex = { ...materialVideoIndex, [step]: 0 };
+
+    // 全てのmaterial動画を順番に再生
+    for (let i = 0; i < videos.length; i++) {
+      const videoElement = getMaterialVideoElement(step, i);
+      if (!videoElement) continue;
+
+      // インデックスを更新（動画を表示）
+      materialVideoIndex = { ...materialVideoIndex, [step]: i };
+
+      // 動画を最初から再生
+      videoElement.currentTime = 0;
+      await videoElement.play().catch(() => {
+        // 自動再生が失敗した場合は無視
+      });
+
+      // 動画が終了するまで待機
+      await new Promise<void>((resolve) => {
+        const onEnded = () => {
+          videoElement.removeEventListener("ended", onEnded);
+          resolve();
+        };
+        videoElement.addEventListener("ended", onEnded);
+      });
+
+      // 動画が終了した画面のまま3秒待機（次の動画に切り替える前に待機）
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+
   // 再生終了のトリガー
   async function handleEnded(event: Event): Promise<void> {
     const video = event.target as HTMLVideoElement;
@@ -120,13 +157,21 @@
 
     // 連続再生モードの場合、次のステップに自動的に進む
     if (isContinuousMode) {
+      // 3秒待機
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // material動画があるSTEPの場合は、material動画も連続再生
+      const hasMaterialVideos = materialVideos[currentStep].length > 0;
+      if (hasMaterialVideos) {
+        await playAllMaterialVideos(currentStep);
+      }
+
+      // 次のステップに進む
       if (currentStep < 5) {
-        // 5秒待機してから次のステップに進む（自動進行なので連続再生モードを維持）
-        await new Promise((resolve) => setTimeout(resolve, 5000));
         await switchVideo(currentStep + 1, true);
       } else {
-        // Step5が終了したら連続再生モードを解除
-        isContinuousMode = false;
+        // Step5が終了したらSTEP1に戻る
+        await switchVideo(1, true);
       }
     }
   }
@@ -787,6 +832,9 @@
 
   // material動画の終了時に次の動画を自動再生（ループなし）
   function handleMaterialVideoEnded(step: number, currentIndex: number): void {
+    // 連続再生モードの時は、playAllMaterialVideos関数で制御するため何もしない
+    if (isContinuousMode) return;
+
     const videos = materialVideos[step];
     if (videos.length <= 1) return; // 動画が1本以下の場合は何もしない
 
@@ -895,11 +943,13 @@
     >
       <!-- svelte-ignore a11y-media-has-caption -->
       <video
+        bind:this={videoViewerElement}
         src={currentVideo}
         class="video-viewer"
         controls
         controlsList="nodownload"
         title="動画表示"
+        preload="auto"
       ></video>
     </div>
   </div>
