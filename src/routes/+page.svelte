@@ -43,6 +43,10 @@
   let step3Note3Active = false; // Step3のnote-area-item3がアクティブかどうか
   let step4Note4Active = false; // Step4のnote-area-item4がアクティブかどうか
   let isContinuousMode = false; // 連続再生モードかどうか
+  // 連続再生時: main動画とmaterial動画の両方終了後に次へ進むためのフラグ
+  let mainMovieEndedInContinuous = false;
+  let materialSequenceEndedInContinuous = false;
+  let isAdvancingToNextStep = false;
 
   // 各material-areaの動画インデックス管理
   let materialVideoIndex: { [key: number]: number } = {
@@ -142,6 +146,26 @@
     }
   }
 
+  // 連続再生時: main動画とmaterial動画の両方が終わったタイミングで次へ進む
+  // skipWait: material側で既に3秒待機済みの場合は true（二重待機を避ける）
+  async function tryAdvanceToNextStep(skipWait = false): Promise<void> {
+    if (!isContinuousMode || isAdvancingToNextStep) return;
+    const hasMaterial = materialVideos[currentStep].length > 0;
+    if (!mainMovieEndedInContinuous) return;
+    if (hasMaterial && !materialSequenceEndedInContinuous) return;
+
+    isAdvancingToNextStep = true;
+    if (!skipWait) {
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    if (currentStep < 5) {
+      await switchVideo(currentStep + 1, true, true);
+    } else {
+      await switchVideo(1, true, true);
+    }
+    isAdvancingToNextStep = false;
+  }
+
   // 再生終了のトリガー
   async function handleEnded(event: Event): Promise<void> {
     const video = event.target as HTMLVideoElement;
@@ -155,24 +179,10 @@
       duration = video.duration || 0;
     }
 
-    // 連続再生モードの場合、次のステップに自動的に進む
+    // 連続再生モード: main動画終了を記録し、materialも終わっていれば3秒後に次へ
     if (isContinuousMode) {
-      // 3秒待機
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      // material動画があるSTEPの場合は、material動画も連続再生
-      const hasMaterialVideos = materialVideos[currentStep].length > 0;
-      if (hasMaterialVideos) {
-        await playAllMaterialVideos(currentStep);
-      }
-
-      // 次のステップに進む
-      if (currentStep < 5) {
-        await switchVideo(currentStep + 1, true);
-      } else {
-        // Step5が終了したらSTEP1に戻る
-        await switchVideo(1, true);
-      }
+      mainMovieEndedInContinuous = true;
+      tryAdvanceToNextStep();
     }
   }
 
@@ -771,6 +781,20 @@
       // material動画インデックスを0（material5-1）にリセット
       materialVideoIndex[5] = 0;
       // 最初の動画は手動再生のため、自動再生はしない
+    }
+
+    // 連続再生モード: mainとmaterialを同時再生し、両方終わったタイミングで次へ進む
+    if (isAutoAdvance && isContinuousMode && newVideo) {
+      mainMovieEndedInContinuous = false;
+      materialSequenceEndedInContinuous = false;
+      isAdvancingToNextStep = false;
+      const hasMaterialVideos = materialVideos[step].length > 0;
+      if (hasMaterialVideos) {
+        playAllMaterialVideos(step).then(() => {
+          materialSequenceEndedInContinuous = true;
+          tryAdvanceToNextStep(true); // 既に最後の動画後に3秒待機済みのためスキップ
+        });
+      }
     }
   }
 
